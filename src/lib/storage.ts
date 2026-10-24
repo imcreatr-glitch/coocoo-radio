@@ -1,14 +1,15 @@
 import path from "path";
 
-/** True when running inside Netlify serverless functions */
-export const IS_NETLIFY = !!process.env.NETLIFY;
+export const IS_SERVERLESS = !!(
+  process.env.NETLIFY ||
+  process.env.NETLIFY_DEV ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.AWS_EXECUTION_ENV
+);
 
-/**
- * Where runtime-uploaded media (songs, news images, ad banners/videos) is stored.
- * - Local dev: public/uploads — served statically by Next dev server
- * - Netlify: filesystem is read-only except /tmp, so uploads go to /tmp/uploads
- *   and are served through the /api/media/[name] route
- */
+/** Back-compat alias */
+export const IS_NETLIFY = IS_SERVERLESS;
+
 export const UPLOAD_DIR =
   process.env.UPLOAD_DIR ||
-  (IS_NETLIFY ? "/tmp/uploads" : path.join(process.cwd(), "public", "uploads"));
+  (IS_SERVERLESS ? "/tmp/uploads" : path.join(process.cwd(), "public", "uploads"));
