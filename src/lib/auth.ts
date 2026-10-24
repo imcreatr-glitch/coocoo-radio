@@ -56,6 +56,11 @@ export async function getSessionFromRequest(req: Request): Promise<string | null
 }
 
 export async function checkAdminUser(username: string, password: string): Promise<boolean> {
+  // Serverless (Netlify): ADMIN_PASSWORD env var wins — DB resets on cold start there.
+  const envPassword = process.env.ADMIN_PASSWORD?.trim();
+  if (envPassword) {
+    return username === "admin" && password === envPassword;
+  }
   const user = await db.adminUser.findUnique({ where: { username } });
   if (!user) return false;
   return user.password === hashPassword(password);
