@@ -1,0 +1,87 @@
+generator client {
+  provider      = "prisma-client-js"
+  // rhel-openssl-3.0 = Netlify/AWS Lambda (Amazon Linux) query engine
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Songs for the 24x7 auto-pilot playlist (uploaded from PC or cloud link)
+model Song {
+  id        String   @id @default(cuid())
+  title     String
+  artist    String?
+  source    String   @default("upload") // "upload" | "link"
+  url       String   // /uploads/xxx.mp3 or external URL
+  addedAt   DateTime @default(now())
+}
+
+// News in 2 languages: punjabi | english
+model News {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  language  String   @default("punjabi")
+  imageUrl  String?
+  addedAt   DateTime @default(now())
+}
+
+// Scheduled shows with YouTube video, timing per weekday
+model Show {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  youtubeUrl  String
+  startTime   String   // "06:00"
+  endTime     String   // "09:00"
+  days        String   @default("0,1,2,3,4,5,6") // 0=Sunday ... 6=Saturday
+  addedAt     DateTime @default(now())
+}
+
+// Advertisements: image or video, optional click link
+model Ad {
+  id       String   @id @default(cuid())
+  title    String
+  type     String   @default("image") // "image" | "video"
+  mediaUrl String
+  link     String?
+  active   Boolean  @default(true)
+  addedAt  DateTime @default(now())
+}
+
+// Listener messages: song requests, greetings, shoutouts from site visitors
+model ListenerMessage {
+  id        String   @id @default(cuid())
+  name      String
+  city      String?
+  type      String   @default("request") // request | greeting | shoutout
+  message   String
+  showTitle String?  // show name if sent during a show
+  read      Boolean  @default(false)
+  addedAt   DateTime @default(now())
+}
+
+// Live chat messages (HTTP-polling fallback used on serverless hosting
+// where the socket.io mini-service is not available, e.g. Netlify)
+model ChatMessage {
+  id        String   @id @default(cuid())
+  name      String
+  body      String
+  createdAt DateTime @default(now())
+}
+
+// Key-value station settings
+model Setting {
+  key   String @id
+  value String
+}
+
+// Single admin user
+model AdminUser {
+  id       String @id @default(cuid())
+  username String @unique
+  password String // sha256(password + secret)
+}

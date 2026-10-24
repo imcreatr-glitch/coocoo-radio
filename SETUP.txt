@@ -1,0 +1,70 @@
+================================================================
+  CooCoo Radio 24x7 — Apne PC te kiven chalau? (Setup Guide)
+================================================================
+
+KI CHAHIDA (ek vaari install karo):
+  1. Node.js 20+  ->  https://nodejs.org  (LTS version)
+  2. Bun          ->  https://bun.sh  (Windows te PowerShell ch:
+      powershell -c "irm bun.sh/install.ps1 | iex")
+
+----------------------------------------------------------------
+STEP 1 — MAIN SITE CHALAO (Terminal #1)
+----------------------------------------------------------------
+  cd coocoo-radio-24x7        (jithhe extract kitta)
+  bun install
+  bunx prisma generate
+  bun run dev
+
+  Browser ch kholo:  http://localhost:3000
+  (Bun nahi hunda ta npm naal: npm install / npx prisma generate / npm run dev)
+
+  ADMIN PANEL: site te upar-right lock button →
+      username: admin   |   password: admin123
+      (Settings ch jaake password change kar sakde ho)
+
+----------------------------------------------------------------
+STEP 2 — REALTIME CHAT + LIVE VOICE ROOM (optional, 2 hor terminals)
+----------------------------------------------------------------
+  Terminal #2:
+      cd mini-services/chat-service
+      bun install
+      bun run dev
+
+  Terminal #3:
+      cd mini-services/voice-service
+      bun install
+      bun run dev
+
+  Note: eh 2 services na chalao ta vi site chaldi rahegi —
+  Online Chat "polling" mode te chalega (3 sec delay), par
+  LIVE VOICE ROOM (podcast-style mic discussion) lai eh service ZAROORI a.
+
+----------------------------------------------------------------
+STEP 3 — NETLIFY TE FREE DEPLOY (optional)
+----------------------------------------------------------------
+  > npm install -g netlify-cli
+  > netlify login
+  > netlify sites:create --name tuhadi-site-naam
+  > netlify deploy --build --prod
+
+  Ya phir apne Netlify dashboard ch "Add new site -> Import project"
+  naal eh folder GitHub te push kar ke connect kar deo.
+
+  NETLIFY LIMITS (free serverless hosting):
+  - Online Chat polling mode te chalegi (automatic)
+  - Voice Room off rahegi (WebSocket serverless te support nahi)
+  - DB te uploaded files temporary: server instance badalne te
+    admin changes/uploads reset ho sakde (demo lai theek)
+
+----------------------------------------------------------------
+HOR GALAN
+----------------------------------------------------------------
+- Database: db/custom.db — vich admin + demo data pehle ton a
+  (3 songs, 2 news, 4 shows, 2 ads). Admin panel ton sab manage hunda.
+- Songs upload: admin panel → Songs tab → PC to upload ya cloud link
+- .env ch DATABASE_URL relative path a — kithe vi chalega
+- DB badlaun to baad:  bun scripts/generate-db-bundle.ts  (Netlify lai snapshot)
+- Rooster (murga) subah 5-11 vaje "coo coo kdoooo" boluga — click karke
+  kade vi karwa sakde ho!
+
+Problems aya? Terminal da error copy kar ke pucho. Happy radio! 📻🐓

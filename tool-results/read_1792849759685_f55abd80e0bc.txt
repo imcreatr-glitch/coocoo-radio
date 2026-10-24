@@ -1,0 +1,797 @@
+     1→"use client";
+     2→
+     3→/**
+     4→ * CooCoo Radio — Live Studio (voice room)
+     5→ * Live podcast / discussion room:
+     6→ * - Listener: join by name, hear the current speaker (MSE webm/opus playback),
+     7→ *   raise hand to ask for the mic
+     8→ * - Speaker (when admin grants you the mic): mic streams via MediaRecorder
+     9→ * - Admin (host console): start/end room, take mic, grant mic to raised hands
+    10→ * Transport: socket.io mini-service voice-service (:3004) via Caddy gateway.
+    11→ */
+    12→import { useCallback, useEffect, useRef, useState } from "react";
+    13→import { io, type Socket } from "socket.io-client";
+    14→import {
+    15→  AudioLines,
+    16→  Crown,
+    17→  Hand,
+    18→  Headphones,
+    19→  Loader2,
+    20→  Mic,
+    21→  MicOff,
+    22→  PhoneOff,
+    23→  PowerOff,
+    24→  Radio,
+    25→  Volume2,
+    26→} from "lucide-react";
+    27→import { Badge } from "@/components/ui/badge";
+    28→import { Button } from "@/components/ui/button";
+    29→import { Input } from "@/components/ui/input";
+    30→import { SectionTitle } from "@/components/site/schedule";
+    31→import { getToken } from "@/lib/client-auth";
+    32→
+    33→interface LiveMember {
+    34→  id: string;
+    35→  name: string;
+    36→  isAdmin: boolean;
+    37→  raised: boolean;
+    38→}
+    39→
+    40→interface LiveState {
+    41→  active: boolean;
+    42→  startedAt: number | null;
+    43→  hostName: string | null;
+    44→  speakerId: string | null;
+    45→  speakerName: string | null;
+    46→  sessionId: number;
+    47→  members: LiveMember[];
+    48→  queue: string[];
+    49→}
+    50→
+    51→interface MseHandle {
+    52→  mse: MediaSource;
+    53→  sb: SourceBuffer | null;
+    54→  url: string;
+    55→  session: number;
+    56→}
+    57→
+    58→/**
+    59→ * Audio wire frame: [4B sessionId BE][4B seq BE][1B flags] + payload
+    60→ * flags bit 0x01 = payload is the webm/EBML session header.
+    61→ */
+    62→const FRAME_HEADER = 9;
+    63→const FLAG_HEADER = 0x01;
+    64→
+    65→const NAME_KEY = "coocoo_live_name";
+    66→const ADMIN_EVENT = "coocoo:admin-changed";
+    67→
+    68→export default function LiveStudio() {
+    69→  const socketRef = useRef<Socket | null>(null);
+    70→  const audioRef = useRef<HTMLAudioElement | null>(null);
+    71→  const mseRef = useRef<MseHandle | null>(null);
+    72→  const pendingRef = useRef<ArrayBuffer[]>([]);
+    73→  const lastSeqRef = useRef(0);
+    74→  const recorderRef = useRef<MediaRecorder | null>(null);
+    75→  const streamRef = useRef<MediaStream | null>(null);
+    76→  const joinedRef = useRef(false);
+    77→  const nameRef = useRef("");
+    78→
+    79→  const [state, setState] = useState<LiveState | null>(null);
+    80→  const [connected, setConnected] = useState(false);
+    81→  const [joined, setJoined] = useState(false);
+    82→  const [name, setName] = useState("");
+    83→  const [myId, setMyId] = useState<string | null>(null);
+    84→  const [isAdmin, setIsAdmin] = useState(false);
+    85→  const [volume, setVolume] = useState(90);
+    86→  const [err, setErr] = useState("");
+    87→  const [micErr, setMicErr] = useState("");
+    88→  const [speaking, setSpeaking] = useState(false);
+    89→  const [mseOk, setMseOk] = useState(true);
+    90→  const [recOk, setRecOk] = useState(true);
+    91→
+    92→  const st = state;
+    93→  const imSpeaker = !!myId && st?.active && st.speakerId === myId;
+    94→
+    95→  /* ---------- playback (MSE) ---------- */
+    96→
+    97→  const teardownPlayback = useCallback(() => {
+    98→    pendingRef.current = [];
+    99→    const p = mseRef.current;
+   100→    mseRef.current = null;
+   101→    if (p) {
+   102→      try {
+   103→        if (p.mse.readyState === "open") p.mse.endOfStream();
+   104→      } catch {
+   105→        /* ignore */
+   106→      }
+   107→      URL.revokeObjectURL(p.url);
+   108→    }
+   109→  }, []);
+   110→
+   111→  const pump = useCallback(() => {
+   112→    const p = mseRef.current;
+   113→    if (!p || !p.sb || p.sb.updating) return;
+   114→    const next = pendingRef.current.shift();
+   115→    if (!next) return;
+   116→    try {
+   117→      p.sb.appendBuffer(next);
+   118→    } catch {
+   119→      /* buffer error -> session will be rebuilt on next voice:session */
+   120→    }
+   121→  }, []);
+   122→
+   123→  const startPlaybackSession = useCallback(
+   124→    (sessionId: number, headerBytes: Uint8Array) => {
+   125→      const audio = audioRef.current;
+   126→      if (!audio || !mseOk) return;
+   127→      teardownPlayback();
+   128→      lastSeqRef.current = 0;
+   129→
+   130→      const mse = new MediaSource();
+   131→      const url = URL.createObjectURL(mse);
+   132→      mseRef.current = { mse, sb: null, url, session: sessionId };
+   133→
+   134→      mse.addEventListener(
+   135→        "sourceopen",
+   136→        () => {
+   137→          const p = mseRef.current;
+   138→          if (!p || p.session !== sessionId) return;
+   139→          let sb: SourceBuffer;
+   140→          try {
+   141→            sb = mse.addSourceBuffer('audio/webm; codecs="opus"');
+   142→          } catch {
+   143→            setMseOk(false);
+   144→            return;
+   145→          }
+   146→          p.sb = sb;
+   147→          try {
+   148→            sb.mode = "sequence";
+   149→          } catch {
+   150→            /* some browsers may not allow switching mode */
+   151→          }
+   152→          sb.addEventListener("updateend", pump);
+   153→          pendingRef.current = [headerBytes];
+   154→          pump();
+   155→          audio.play().catch(() => {});
+   156→        },
+   157→        { once: true }
+   158→      );
+   159→      audio.src = url;
+   160→      audio.play().catch(() => {});
+   161→    },
+   162→    [mseOk, pump, teardownPlayback]
+   163→  );
+   164→
+   165→  /** binary audio frame from the voice service */
+   166→  const handleFrame = useCallback(
+   167→    (d: ArrayBuffer | Uint8Array) => {
+   168→      const u8 = d instanceof Uint8Array ? new Uint8Array(d) : new Uint8Array(d);
+   169→      if (u8.byteLength < FRAME_HEADER + 1) return;
+   170→      const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+   171→      const sid = dv.getUint32(0);
+   172→      const seq = dv.getUint32(4);
+   173→      const flags = dv.getUint8(8);
+   174→      const payload = u8.subarray(FRAME_HEADER);
+   175→      if (flags & FLAG_HEADER) {
+   176→        // new speaker session -> rebuild playback around this header
+   177→        startPlaybackSession(sid, payload);
+   178→        return;
+   179→      }
+   180→      const p = mseRef.current;
+   181→      if (!p || sid !== p.session) return; // stale or unknown session
+   182→      if (seq <= lastSeqRef.current) return; // duplicate / out of order
+   183→      lastSeqRef.current = seq;
+   184→      pendingRef.current.push(payload);
+   185→      pump();
+   186→    },
+   187→    [pump, startPlaybackSession]
+   188→  );
+   189→
+   190→  // trim old buffered audio so long sessions don't grow memory
+   191→  useEffect(() => {
+   192→    if (!joined) return;
+   193→    const t = window.setInterval(() => {
+   194→      const p = mseRef.current;
+   195→      const audio = audioRef.current;
+   196→      if (!p || !p.sb || p.sb.updating || !audio) return;
+   197→      try {
+   198→        if (p.mse.readyState === "open" && p.sb.buffered.length >= 1) {
+   199→          const start = p.sb.buffered.start(0);
+   200→          const cut = audio.currentTime - 15;
+   201→          if (cut > start + 2) p.sb.remove(start, cut);
+   202→        }
+   203→      } catch {
+   204→        /* ignore */
+   205→      }
+   206→    }, 30000);
+   207→    return () => window.clearInterval(t);
+   208→  }, [joined]);
+   209→
+   210→  /* ---------- speaking (MediaRecorder) ---------- */
+   211→
+   212→  const stopSpeaking = useCallback(() => {
+   213→    const rec = recorderRef.current;
+   214→    recorderRef.current = null;
+   215→    if (rec) {
+   216→      rec.ondataavailable = null;
+   217→      try {
+   218→        rec.stop();
+   219→      } catch {
+   220→        /* ignore */
+   221→      }
+   222→    }
+   223→    const s = streamRef.current;
+   224→    streamRef.current = null;
+   225→    if (s) s.getTracks().forEach((t) => t.stop());
+   226→    setSpeaking(false);
+   227→  }, []);
+   228→
+   229→  const startSpeaking = useCallback(async () => {
+   230→    if (recorderRef.current) return;
+   231→    setMicErr("");
+   232→    try {
+   233→      const stream = await navigator.mediaDevices.getUserMedia({
+   234→        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+   235→      });
+   236→      streamRef.current = stream;
+   237→      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+   238→        ? "audio/webm;codecs=opus"
+   239→        : "audio/webm";
+   240→      const rec = new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 32000 });
+   241→      rec.ondataavailable = (e) => {
+   242→        if (e.data && e.data.size > 0) {
+   243→          // raw binary chunk (top-level) — service wraps it with seq/session header
+   244→          e.data
+   245→            .arrayBuffer()
+   246→            .then((b) => socketRef.current?.emit("voice:chunk", b))
+   247→            .catch(() => {});
+   248→        }
+   249→      };
+   250→      rec.onerror = () => stopSpeaking();
+   251→      rec.start(1000);
+   252→      recorderRef.current = rec;
+   253→      setSpeaking(true);
+   254→    } catch {
+   255→      // mic denied / unavailable -> give the mic back
+   256→      socketRef.current?.emit("voice:release");
+   257→      setMicErr("Mic permission nahi mili — browser vich mic allow karo te dobara try karo");
+   258→    }
+   259→  }, [stopSpeaking]);
+   260→
+   261→  // auto start/stop mic streaming when I become / stop being the speaker
+   262→  useEffect(() => {
+   263→    if (imSpeaker) {
+   264→      void startSpeaking();
+   265→    } else {
+   266→      stopSpeaking();
+   267→    }
+   268→  }, [imSpeaker, startSpeaking, stopSpeaking]);
+   269→
+   270→  /* ---------- socket ---------- */
+   271→
+   272→  useEffect(() => {
+   273→    const s = io("/?XTransformPort=3004", {
+   274→      path: "/",
+   275→      transports: ["websocket", "polling"],
+   276→      reconnection: true,
+   277→      reconnectionAttempts: 10,
+   278→      reconnectionDelay: 1500,
+   279→      timeout: 10000,
+   280→    });
+   281→    socketRef.current = s;
+   282→
+   283→    s.on("connect", () => {
+   284→      setConnected(true);
+   285→      setMyId(s.id ?? null);
+   286→      setErr("");
+   287→      // re-join after reconnect so presence stays alive
+   288→      if (joinedRef.current) {
+   289→        s.emit("voice:join", { name: nameRef.current, token: getToken() ?? undefined });
+   290→      }
+   291→    });
+   292→    s.on("disconnect", () => setConnected(false));
+   293→    s.on("connect_error", () => setConnected(false));
+   294→
+   295→    s.on("voice:state", (d: LiveState) => {
+   296→      if (d && Array.isArray(d.members)) setState(d);
+   297→    });
+   298→    s.on("voice:frame", (d: ArrayBuffer | Uint8Array) => handleFrame(d));
+   299→    s.on("voice:error", (d: { error?: string }) => setErr(d?.error || "Koi error aaya"));
+   300→
+   301→    return () => {
+   302→      s.disconnect();
+   303→      socketRef.current = null;
+   304→    };
+   305→  }, [handleFrame]);
+   306→
+   307→  // cleanup media on unmount
+   308→  useEffect(() => {
+   309→    return () => {
+   310→      stopSpeaking();
+   311→      teardownPlayback();
+   312→    };
+   313→  }, [stopSpeaking, teardownPlayback]);
+   314→
+   315→  /* ---------- support + name + admin detection ---------- */
+   316→
+   317→  useEffect(() => {
+   318→    const mseSupported =
+   319→      typeof MediaSource !== "undefined" && MediaSource.isTypeSupported('audio/webm; codecs="opus"');
+   320→    setMseOk(mseSupported);
+   321→    setRecOk(
+   322→      typeof MediaRecorder !== "undefined" &&
+   323→        (MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ||
+   324→          MediaRecorder.isTypeSupported("audio/webm"))
+   325→    );
+   326→    const t = setTimeout(() => {
+   327→      const saved = window.localStorage.getItem(NAME_KEY);
+   328→      if (saved) {
+   329→        setName(saved);
+   330→        nameRef.current = saved;
+   331→      }
+   332→      setIsAdmin(!!getToken());
+   333→    }, 0);
+   334→    const onAdmin = () => setIsAdmin(!!getToken());
+   335→    window.addEventListener(ADMIN_EVENT, onAdmin);
+   336→    return () => {
+   337→      window.clearTimeout(t);
+   338→      window.removeEventListener(ADMIN_EVENT, onAdmin);
+   339→    };
+   340→  }, []);
+   341→
+   342→  useEffect(() => {
+   343→    if (audioRef.current) audioRef.current.volume = volume / 100;
+   344→  }, [volume]);
+   345→
+   346→  /* ---------- actions ---------- */
+   347→
+   348→  const emitJoin = useCallback(() => {
+   349→    const s = socketRef.current;
+   350→    if (!s) return;
+   351→    s.emit("voice:join", { name: nameRef.current, token: getToken() ?? undefined });
+   352→  }, []);
+   353→
+   354→  const join = useCallback(() => {
+   355→    const n = name.trim() || "Sarota";
+   356→    nameRef.current = n;
+   357→    joinedRef.current = true;
+   358→    window.localStorage.setItem(NAME_KEY, n);
+   359→    emitJoin();
+   360→    setJoined(true);
+   361→    setErr("");
+   362→    audioRef.current?.play().catch(() => {});
+   363→  }, [name, emitJoin]);
+   364→
+   365→  const hostAction = useCallback((event: string, extra: Record<string, unknown> = {}) => {
+   366→    const token = getToken();
+   367→    if (!token) {
+   368→      setErr("Eh action sirf admin layi hai — pehla admin panel vich login karo");
+   369→      return;
+   370→    }
+   371→    socketRef.current?.emit(event, { token, ...extra });
+   372→    setErr("");
+   373→  }, []);
+   374→
+   375→  const leave = useCallback(() => {
+   376→    socketRef.current?.emit("voice:release");
+   377→    socketRef.current?.emit("voice:unraise");
+   378→    joinedRef.current = false;
+   379→    setJoined(false);
+   380→    stopSpeaking();
+   381→    teardownPlayback();
+   382→  }, [stopSpeaking, teardownPlayback]);
+   383→
+   384→  /* ---------- derived ---------- */
+   385→
+   386→  const members = st?.members ?? [];
+   387→  const onlineCount = members.length;
+   388→  const liveSeconds = st?.startedAt ? Math.max(0, Math.floor((Date.now() - st.startedAt) / 1000)) : 0;
+   389→  const liveLabel =
+   390→    liveSeconds > 0
+   391→      ? `${Math.floor(liveSeconds / 3600)}:${String(Math.floor((liveSeconds % 3600) / 60)).padStart(2, "0")}:${String(liveSeconds % 60).padStart(2, "0")}`
+   392→      : null;
+   393→  const iAmInQueue = !!myId && st?.queue.includes(myId);
+   394→
+   395→  /* ---------- render ---------- */
+   396→
+   397→  return (
+   398→    <section
+   399→      id="live"
+   400→      className={`border-b border-amber-400/10 transition-colors ${
+   401→        st?.active ? "bg-[oklch(0.185_0.03_30)]" : "bg-[oklch(0.165_0.012_60)]"
+   402→      }`}
+   403→      data-testid="live-studio"
+   404→    >
+   405→      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
+   406→        <SectionTitle
+   407→          title="ਲਾਈਵ ਸਟੂਡੀਓ • Live Voice Room"
+   408→          sub="Live podcast discussion — mic naal judo! Admin room start karega, tusi sunn sakde ho te hath utha ke discussion vich hissa le sakde ho"
+   409→        />
+   410→
+   411→        {/* status strip */}
+   412→        <div
+   413→          className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-amber-400/20 bg-black/30 px-4 py-3"
+   414→          data-testid="live-status"
+   415→        >
+   416→          {st?.active ? (
+   417→            <>
+   418→              <Badge className="live-dot gap-1.5 border-0 bg-red-600 px-3 py-1 text-xs font-bold text-white">
+   419→                <Radio className="h-3.5 w-3.5" /> ON AIR
+   420→              </Badge>
+   421→              <span className="text-sm font-semibold text-amber-100">
+   422→                {st.speakerName ? (
+   423→                  <>
+   424→                    <MicOff className="mr-1 inline h-4 w-4 text-amber-400" />
+   425→                    <span className="font-gur">{st.speakerName}</span> mic te bol rahe ne
+   426→                  </>
+   427→                ) : (
+   428→                  "Mic khali hai — hath chuko te bolna shuru karo!"
+   429→                )}
+   430→              </span>
+   431→              {liveLabel && (
+   432→                <span className="ml-auto font-mono text-xs tabular-nums text-amber-300/80">
+   433→                  ⏱ {liveLabel}
+   434→                </span>
+   435→              )}
+   436→            </>
+   437→          ) : (
+   438→            <>
+   439→              <Badge variant="outline" className="gap-1.5 border-amber-400/30 px-3 py-1 text-xs text-amber-300">
+   440→                <PowerOff className="h-3.5 w-3.5" /> STUDIO OFF
+   441→              </Badge>
+   442→              <span className="font-gur text-sm text-amber-100/70">
+   443→                Live room band hai — admin start karega ta ethe aawaz aavegi
+   444→              </span>
+   445→            </>
+   446→          )}
+   447→          <Badge
+   448→            variant="outline"
+   449→            className={`ml-auto gap-1 border-emerald-400/40 bg-emerald-400/10 text-[10px] text-emerald-300 ${
+   450→              st?.active ? "" : "ml-0"
+   451→            }`}
+   452→          >
+   453→            <Headphones className="h-3 w-3" /> {onlineCount} vich shamil
+   454→          </Badge>
+   455→        </div>
+   456→
+   457→        {!mseOk && (
+   458→          <p className="mb-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2 text-xs text-red-300">
+   459→            Tuhada browser live audio playback support nahi karda — Chrome ya Edge vich kholo te maza
+   460→            lao.
+   461→          </p>
+   462→        )}
+   463→
+   464→        <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+   465→          {/* ---------- left: stage ---------- */}
+   466→          <div
+   467→            className="flex flex-col overflow-hidden rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)]"
+   468→            data-testid="live-stage"
+   469→          >
+   470→            <div className="flex items-center justify-between border-b border-amber-400/15 bg-black/25 px-4 py-3">
+   471→              <h3 className="flex items-center gap-2 text-sm font-bold text-amber-100">
+   472→                <AudioLines className="h-4.5 w-4.5 text-amber-400" /> Studio Stage
+   473→              </h3>
+   474→              {speaking && (
+   475→                <Badge className="gap-1 border-0 bg-amber-400 text-[10px] font-bold text-black">
+   476→                  <Mic className="h-3 w-3" /> TUHADI AAWAZ ON AIR
+   477→                </Badge>
+   478→              )}
+   479→            </div>
+   480→
+   481→            {!joined ? (
+   482→              /* ---- join card ---- */
+   483→              <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
+   484→                <div className="glow-pulse flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-600 text-3xl shadow-[0_4px_24px_rgba(245,158,11,0.45)]">
+   485→                  🎙️
+   486→                </div>
+   487→                <p className="font-gur text-center text-sm text-amber-100/70">
+   488→                  Live voice room vich shamil hon layi apna naam likho — phir sunn sakde ho, te
+   489→                  admin mic deve ta bol vi sakde ho
+   490→                </p>
+   491→                <Input
+   492→                  value={name}
+   493→                  onChange={(e) => setName(e.target.value)}
+   494→                  onKeyDown={(e) => e.key === "Enter" && join()}
+   495→                  placeholder="Tuhada naam (jiven: Simran)"
+   496→                  maxLength={24}
+   497→                  disabled={!connected}
+   498→                  className="max-w-[260px] border-amber-400/30 bg-black/30 text-amber-50"
+   499→                  data-testid="live-name"
+   500→                />
+   501→                <Button
+   502→                  onClick={join}
+   503→                  disabled={!connected || !name.trim()}
+   504→                  data-testid="live-join"
+   505→                  className="border-0 bg-gradient-to-r from-amber-400 to-orange-500 font-bold text-black hover:from-amber-300 hover:to-orange-400"
+   506→                >
+   507→                  {connected ? (
+   508→                    <>
+   509→                      <Headphones className="mr-1 h-4 w-4" /> Studio vich aao
+   510→                    </>
+   511→                  ) : (
+   512→                    <>
+   513→                      <Loader2 className="mr-1 h-4 w-4 animate-spin" /> Connect ho raha hai...
+   514→                    </>
+   515→                  )}
+   516→                </Button>
+   517→                {!recOk && (
+   518→                  <p className="text-center text-[11px] text-amber-200/50">
+   519→                    Note: eh browser mic recording support nahi karda — sunn vi sakde ho, bolan
+   520→                    layi Chrome/Edge use karo
+   521→                  </p>
+   522→                )}
+   523→              </div>
+   524→            ) : (
+   525→              /* ---- stage live view ---- */
+   526→              <div className="flex flex-1 flex-col items-center justify-center gap-5 p-8">
+   527→                {/* speaker visual */}
+   528→                <div
+   529→                  className={`flex h-24 w-24 items-center justify-center rounded-full text-4xl shadow-[0_8px_32px_rgba(245,158,11,0.4)] ${
+   530→                    st?.active ? "glow-pulse bg-gradient-to-br from-amber-400 to-orange-600" : "bg-black/40"
+   531→                  }`}
+   532→                >
+   533→                  {st?.active ? "🎙️" : "💤"}
+   534→                </div>
+   535→
+   536→                {st?.active ? (
+   537→                  <>
+   538→                    <div className="text-center">
+   539→                      <p className="font-gur text-lg font-bold text-amber-100">
+   540→                        {st.speakerName ?? "Mic khali hai"}
+   541→                      </p>
+   542→                      <p className="text-xs text-amber-100/60">
+   543→                        {imSpeaker
+   544→                          ? "Tusi mic te ho — gal karo, sab nu sunai devega!"
+   545→                          : st.speakerName
+   546→                            ? "Live chal raha hai — thalle volume set karo"
+   547→                            : "Admin kisi nu mic devenga, rukho..."}
+   548→                      </p>
+   549→                    </div>
+   550→
+   551→                    {/* equalizer */}
+   552→                    <div className="flex h-9 items-end gap-1.5" aria-hidden="true">
+   553→                      {[0.9, 0.55, 1.1, 0.7, 1.0, 0.6, 0.95].map((h, i) => (
+   554→                        <span
+   555→                          key={i}
+   556→                          className={`eq-bar w-1.5 rounded-full bg-gradient-to-t from-orange-600 to-amber-300 ${st.active ? "" : "!transform-none opacity-30"}`}
+   557→                          style={{ height: `${h * 34}px`, animationDelay: `${i * 90}ms` }}
+   558→                        />
+   559→                      ))}
+   560→                    </div>
+   561→
+   562→                    {/* volume */}
+   563→                    <div className="flex w-full max-w-xs items-center gap-2" data-testid="live-volume-wrap">
+   564→                      <Volume2 className="h-4 w-4 shrink-0 text-amber-300" />
+   565→                      <input
+   566→                        type="range"
+   567→                        min={0}
+   568→                        max={100}
+   569→                        value={volume}
+   570→                        onChange={(e) => setVolume(Number(e.target.value))}
+   571→                        aria-label="Voice volume"
+   572→                        data-testid="live-volume"
+   573→                        className="h-1.5 w-full accent-amber-400"
+   574→                      />
+   575→                      <span className="w-8 text-right text-[11px] tabular-nums text-amber-200/70">
+   576→                        {volume}%
+   577→                      </span>
+   578→                    </div>
+   579→
+   580→                    {/* listener actions */}
+   581→                    <div className="flex flex-wrap items-center justify-center gap-2">
+   582→                      {imSpeaker ? (
+   583→                        <Button
+   584→                          onClick={() => socketRef.current?.emit("voice:release")}
+   585→                          variant="outline"
+   586→                          data-testid="live-release"
+   587→                          className="border-red-400/40 bg-red-500/10 text-red-300 hover:bg-red-500/20"
+   588→                        >
+   589→                          <PhoneOff className="mr-1 h-4 w-4" /> Mic chhado
+   590→                        </Button>
+   591→                      ) : iAmInQueue ? (
+   592→                        <Button
+   593→                          onClick={() => socketRef.current?.emit("voice:unraise")}
+   594→                          variant="outline"
+   595→                          data-testid="live-unraise"
+   596→                          className="border-amber-400/40 bg-amber-400/10 text-amber-200 hover:bg-amber-400/20"
+   597→                        >
+   598→                          <Hand className="mr-1 h-4 w-4" /> Queue vich ho — hath hatao
+   599→                        </Button>
+   600→                      ) : (
+   601→                        <Button
+   602→                          onClick={() => socketRef.current?.emit("voice:raise")}
+   603→                          data-testid="live-raise"
+   604→                          disabled={!recOk}
+   605→                          className="border-0 bg-gradient-to-r from-amber-400 to-orange-500 font-bold text-black hover:from-amber-300 hover:to-orange-400"
+   606→                        >
+   607→                          <Hand className="mr-1 h-4 w-4" /> 🙋 Bolna aa — hath chuko
+   608→                        </Button>
+   609→                      )}
+   610→                    </div>
+   611→                    {iAmInQueue && (
+   612→                      <p className="font-gur text-[11px] text-emerald-300">
+   613→                        ✋ Tuhadi hath queue vich hai — admin mic devega ta tuhadi aawaz ON AIR ho
+   614→                        javegi
+   615→                      </p>
+   616→                    )}
+   617→                  </>
+   618→                ) : (
+   619→                  <p className="font-gur text-center text-sm text-amber-100/60">
+   620→                    Studio band hai — join kite raho, room start hunday hi aawaz apne aap chalu
+   621→                    ho javegi
+   622→                  </p>
+   623→                )}
+   624→
+   625→                {(micErr || err) && (
+   626→                  <p className="text-center text-[11px] text-red-400" data-testid="live-error">
+   627→                    {micErr || err}
+   628→                  </p>
+   629→                )}
+   630→              </div>
+   631→            )}
+   632→          </div>
+   633→
+   634→          {/* ---------- right: members + host console ---------- */}
+   635→          <div className="flex flex-col gap-4">
+   636→            {/* members */}
+   637→            <div className="overflow-hidden rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)]">
+   638→              <div className="flex items-center justify-between border-b border-amber-400/15 bg-black/25 px-4 py-3">
+   639→                <h3 className="flex items-center gap-2 text-sm font-bold text-amber-100">
+   640→                  <Headphones className="h-4.5 w-4.5 text-amber-400" /> Studio vich kaun aa
+   641→                </h3>
+   642→                <span className="text-[10px] text-amber-200/60">{onlineCount} log</span>
+   643→              </div>
+   644→              <div
+   645→                className="nice-scroll max-h-44 space-y-1.5 overflow-y-auto p-3"
+   646→                data-testid="live-members"
+   647→              >
+   648→                {members.length === 0 && (
+   649→                  <p className="py-4 text-center text-xs text-amber-100/40">
+   650→                    Hale koi nahi — pehla tusi join karo!
+   651→                  </p>
+   652→                )}
+   653→                {members.map((m) => (
+   654→                  <div
+   655→                    key={m.id}
+   656→                    className={`flex items-center gap-2 rounded-xl px-3 py-1.5 ${
+   657→                      m.id === myId ? "bg-amber-400/10" : "bg-black/20"
+   658→                    }`}
+   659→                  >
+   660→                    {m.isAdmin && <Crown className="h-3.5 w-3.5 shrink-0 text-amber-400" />}
+   661→                    <span className="font-gur truncate text-sm text-amber-50/90">
+   662→                      {m.name}
+   663→                      {m.id === myId && <span className="text-amber-300/60"> (tusi)</span>}
+   664→                    </span>
+   665→                    <span className="ml-auto flex items-center gap-1.5">
+   666→                      {m.id === st?.speakerId && (
+   667→                        <Mic className="h-3.5 w-3.5 text-red-400" aria-label="speaker" />
+   668→                      )}
+   669→                      {m.raised && <Hand className="h-3.5 w-3.5 text-emerald-400" aria-label="hand raised" />}
+   670→                    </span>
+   671→                  </div>
+   672→                ))}
+   673→              </div>
+   674→            </div>
+   675→
+   676→            {/* host console (admin only) */}
+   677→            {isAdmin && (
+   678→              <div
+   679→                className="overflow-hidden rounded-2xl border border-red-400/30 bg-[oklch(0.21_0.018_60)]"
+   680→                data-testid="host-console"
+   681→              >
+   682→                <div className="flex items-center justify-between border-b border-red-400/20 bg-black/25 px-4 py-3">
+   683→                  <h3 className="flex items-center gap-2 text-sm font-bold text-red-200">
+   684→                    <Crown className="h-4.5 w-4.5 text-amber-400" /> Host Console
+   685→                  </h3>
+   686→                  <Badge
+   687→                    variant="outline"
+   688→                    className="border-red-400/40 text-[10px] text-red-300"
+   689→                  >
+   690→                    admin
+   691→                  </Badge>
+   692→                </div>
+   693→                <div className="space-y-3 p-4">
+   694→                  {!joined && (
+   695→                    <p className="text-[11px] text-amber-200/60">
+   696→                      Pehla upar apne naam naal Studio vich join karo, phir host controls use karo.
+   697→                    </p>
+   698→                  )}
+   699→
+   700→                  {!st?.active ? (
+   701→                    <Button
+   702→                      onClick={() => hostAction("host:start")}
+   703→                      disabled={!joined || !connected}
+   704→                      data-testid="host-start"
+   705→                      className="live-dot w-full border-0 bg-red-600 font-bold text-white hover:bg-red-500"
+   706→                    >
+   707→                      <Radio className="mr-1 h-4 w-4" /> ON AIR — Live Room START karo
+   708→                    </Button>
+   709→                  ) : (
+   710→                    <>
+   711→                      <div className="grid grid-cols-2 gap-2">
+   712→                        <Button
+   713→                          onClick={() => hostAction("host:claim")}
+   714→                          disabled={!joined || !connected || imSpeaker}
+   715→                          data-testid="host-claim"
+   716→                          className="border-0 bg-gradient-to-r from-amber-400 to-orange-500 font-bold text-black hover:from-amber-300 hover:to-orange-400"
+   717→                        >
+   718→                          <Mic className="mr-1 h-4 w-4" /> Mic lao
+   719→                        </Button>
+   720→                        <Button
+   721→                          onClick={() => hostAction("host:endSpeaker")}
+   722→                          disabled={!st.speakerId || imSpeaker}
+   723→                          data-testid="host-end-speaker"
+   724→                          variant="outline"
+   725→                          className="border-amber-400/40 bg-amber-400/10 text-amber-200 hover:bg-amber-400/20"
+   726→                        >
+   727→                          <MicOff className="mr-1 h-4 w-4" /> Speaker band
+   728→                        </Button>
+   729→                      </div>
+   730→
+   731→                      {/* mic queue */}
+   732→                      <div className="rounded-xl bg-black/25 p-3">
+   733→                        <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-amber-300/80">
+   734→                          ✋ Mic queue ({st.queue.length})
+   735→                        </p>
+   736→                        {st.queue.length === 0 ? (
+   737→                          <p className="text-[11px] text-amber-100/40">
+   738→                            Hale kisi ne hath nahi chukaya
+   739→                          </p>
+   740→                        ) : (
+   741→                          <div className="space-y-1.5">
+   742→                            {st.queue.map((qid, i) => {
+   743→                              const m = members.find((x) => x.id === qid);
+   744→                              return (
+   745→                                <div
+   746→                                  key={qid}
+   747→                                  className="flex items-center gap-2 rounded-lg bg-black/30 px-2.5 py-1.5"
+   748→                                >
+   749→                                  <span className="text-[10px] font-bold text-amber-400">
+   750→                                    #{i + 1}
+   751→                                  </span>
+   752→                                  <span className="font-gur truncate text-sm text-amber-50/90">
+   753→                                    {m?.name ?? "?"}
+   754→                                  </span>
+   755→                                  <Button
+   756→                                    size="sm"
+   757→                                    onClick={() => hostAction("host:grant", { memberId: qid })}
+   758→                                    data-testid={`host-grant-${i + 1}`}
+   759→                                    className="ml-auto h-7 border-0 bg-emerald-500 px-2.5 text-[11px] font-bold text-black hover:bg-emerald-400"
+   760→                                  >
+   761→                                    Mic de
+   762→                                  </Button>
+   763→                                </div>
+   764→                              );
+   765→                            })}
+   766→                          </div>
+   767→                        )}
+   768→                      </div>
+   769→
+   770→                      <Button
+   771→                        onClick={() => hostAction("host:stop")}
+   772→                        disabled={!connected}
+   773→                        data-testid="host-stop"
+   774→                        variant="outline"
+   775→                        className="w-full border-red-400/40 bg-red-500/10 text-red-300 hover:bg-red-500/20"
+   776→                      >
+   777→                        <PowerOff className="mr-1 h-4 w-4" /> Room khatam karo
+   778→                      </Button>
+   779→                    </>
+   780→                  )}
+   781→                  <p className="text-[10px] leading-relaxed text-amber-100/40">
+   782→                    Tip: mic sirf ik vaike time te ik bande kol hunda — pehla khud bolo, fer queue
+   783→                    vichon kisi nala bari bari discussion karo (jive live podcast).
+   784→                  </p>
+   785→                </div>
+   786→              </div>
+   787→            )}
+   788→          </div>
+   789→        </div>
+   790→
+   791→        {/* hidden audio element used for MSE live playback */}
+   792→        <audio ref={audioRef} playsInline preload="none" className="hidden" aria-hidden="true" />
+   793→      </div>
+   794→    </section>
+   795→  );
+   796→}
+   797→

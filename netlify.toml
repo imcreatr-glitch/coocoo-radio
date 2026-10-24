@@ -1,0 +1,23 @@
+# Netlify deployment — CooCoo Radio 24x7
+# Serverless notes:
+#  - SQLite DB is materialized into /tmp on cold start (src/lib/db.ts;
+#    falls back to the base64 snapshot in src/lib/db-bundle.ts)
+#  - Runtime uploads go to /tmp/uploads (src/lib/storage.ts) and are served
+#    through /api/media/[name]
+#  - socket.io chat/voice mini-services can't run here: chat auto-switches to
+#    HTTP polling (/api/chat), voice room shows a friendly notice
+
+[build]
+  command = "npx prisma generate && npx next build"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"
+  DATABASE_URL = "file:/tmp/coocoo.db"
+  UPLOAD_DIR = "/tmp/uploads"
+
+[functions]
+  included_files = ["db/custom.db"]
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

@@ -1,0 +1,158 @@
+"use client";
+
+import { useMemo } from "react";
+import { motion } from "framer-motion";
+import { Pause, Play, Radio, Sunrise, Tv } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { usePlayer } from "@/lib/store";
+import { isOnAir, type ShowItem } from "@/lib/types";
+
+export function Equalizer({ playing, bars = 7, className = "" }: { playing: boolean; bars?: number; className?: string }) {
+  const heights = useMemo(() => Array.from({ length: bars }, (_, i) => 0.35 + ((i * 37) % 65) / 100), [bars]);
+  return (
+    <div className={`flex h-8 items-end gap-1 ${className}`} aria-hidden="true">
+      {heights.map((h, i) => (
+        <span
+          key={i}
+          className={`eq-bar w-1.5 rounded-full bg-gradient-to-t from-orange-600 to-amber-300 ${playing ? "" : "!transform-none opacity-30"}`}
+          style={{ height: `${h * 100}%`, animationDelay: `${i * 0.12}s`, animationDuration: `${0.7 + (i % 3) * 0.18}s` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+export default function Hero({ shows }: { shows: ShowItem[] }) {
+  const playing = usePlayer((s) => s.playing);
+  const toggle = usePlayer((s) => s.toggle);
+  const settings = usePlayer((s) => s.settings);
+  const tracks = usePlayer((s) => s.tracks);
+  const index = usePlayer((s) => s.index);
+
+  const onAir = useMemo(() => {
+    const now = new Date();
+    return shows.filter((s) => isOnAir(s, now.getDay(), now.getHours() * 60 + now.getMinutes()));
+  }, [shows]);
+
+  const currentTrack = tracks.length > 0 ? tracks[index % tracks.length] : null;
+
+  return (
+    <section className="hero-bg relative overflow-hidden border-b border-amber-400/10">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[1.2fr_1fr] lg:py-20">
+        {/* Left */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="flex flex-col justify-center"
+        >
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <Badge className="gap-1.5 border-0 bg-red-600 px-3 py-1 text-xs font-bold text-white">
+              <span className="live-dot inline-block h-2 w-2 rounded-full bg-white" /> LIVE 24x7
+            </Badge>
+            <Badge variant="outline" className="gap-1 border-amber-400/40 bg-amber-400/10 text-amber-300">
+              <Sunrise className="h-3 w-3" /> ਸਵੇਰੇ ਮੁਰਗਾ ਕੂਕਦਾ 🐓
+            </Badge>
+          </div>
+
+          <h2 className="font-gur text-4xl font-extrabold leading-tight tracking-tight text-transparent sm:text-5xl lg:text-6xl">
+            <span className="bg-gradient-to-r from-amber-200 via-amber-400 to-orange-500 bg-clip-text">
+              {settings.stationName}
+            </span>
+          </h2>
+          <p className="font-gur mt-3 text-lg text-amber-100/85 sm:text-xl">{settings.tagline}</p>
+          <p className="mt-2 max-w-xl text-sm text-amber-100/60 sm:text-base">
+            Latest Punjabi te English music non-stop, fresh news updates, scheduled
+            shows with YouTube videos — te saver saver murge da swagat!
+          </p>
+
+          <div className="mt-8 flex flex-wrap items-center gap-4">
+            <Button
+              size="lg"
+              onClick={toggle}
+              data-testid="hero-play"
+              className={`glow-pulse h-16 w-16 rounded-full border-0 bg-gradient-to-br from-amber-400 to-orange-600 p-0 text-black hover:from-amber-300 hover:to-orange-500 ${
+                playing ? "" : ""
+              }`}
+              aria-label={playing ? "Pause radio" : "Play radio"}
+            >
+              {playing ? <Pause className="h-7 w-7" /> : <Play className="ml-1 h-7 w-7" />}
+            </Button>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-amber-400/80">
+                {playing ? "Now Playing" : "Tap to tune in"}
+              </p>
+              <p className="mt-0.5 max-w-[260px] truncate text-sm font-medium text-amber-50 sm:max-w-xs" data-testid="hero-track">
+                {settings.liveMode === "stream"
+                  ? "🔴 Live Stream"
+                  : currentTrack
+                    ? `🎵 ${currentTrack.title}${currentTrack.artist ? ` — ${currentTrack.artist}` : ""}`
+                    : "Auto-Pilot 24x7 playlist ready"}
+              </p>
+            </div>
+            <Equalizer playing={playing} bars={9} className="ml-auto hidden sm:flex" />
+          </div>
+        </motion.div>
+
+        {/* Right — ON AIR card */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.15 }}
+          className="flex items-center"
+        >
+          <div className="relative w-full overflow-hidden rounded-2xl border border-amber-400/25 bg-gradient-to-br from-[oklch(0.24_0.03_60)] to-[oklch(0.19_0.02_60)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="live-dot h-2.5 w-2.5 rounded-full bg-red-500" />
+                <span className="text-xs font-bold uppercase tracking-widest text-red-400">
+                  {onAir.length > 0 ? "On Air Now" : "Auto-Pilot Mode"}
+                </span>
+              </div>
+              <div
+                className={`relative h-12 w-12 rounded-full border-4 border-amber-900/70 bg-gradient-to-br from-amber-500 to-orange-700 ${playing ? "spin-slow" : ""}`}
+                aria-hidden="true"
+              >
+                <span className="absolute inset-0 m-auto h-3 w-3 rounded-full bg-amber-950" />
+              </div>
+            </div>
+
+            {onAir.length > 0 ? (
+              <div className="mt-4 space-y-3" data-testid="on-air-card">
+                {onAir.slice(0, 2).map((show) => (
+                  <div key={show.id} className="rounded-xl border border-amber-400/20 bg-black/25 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-lg font-bold text-amber-50">{show.title}</h3>
+                        {show.description && (
+                          <p className="font-gur mt-1 line-clamp-2 text-sm text-amber-100/70">{show.description}</p>
+                        )}
+                      </div>
+                      <Badge className="shrink-0 border-0 bg-amber-400 font-mono text-xs font-bold text-black">
+                        {show.startTime}–{show.endTime}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 rounded-xl border border-amber-400/20 bg-black/25 p-4" data-testid="on-air-card">
+                <h3 className="text-lg font-bold text-amber-50">Non-stop 24x7 Auto-Pilot</h3>
+                <p className="mt-1 text-sm text-amber-100/70">
+                  Koi scheduled show nahi — playlist apne aap chal rahi hai, din raat bina ruke.
+                </p>
+              </div>
+            )}
+
+            <div className="mt-4 flex items-center gap-2 text-xs text-amber-200/60">
+              <Tv className="h-3.5 w-3.5" />
+              Poora schedule vekhan layi thale scroll karo
+              <Radio className="ml-auto h-3.5 w-3.5" />
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
