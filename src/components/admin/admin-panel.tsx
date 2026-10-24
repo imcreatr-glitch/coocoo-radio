@@ -168,11 +168,6 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
                   Login karo
                 </Button>
               </div>
-              <div className="mt-5 rounded-xl border border-amber-400/20 bg-amber-400/5 px-4 py-3 text-center text-xs text-amber-200/70">
-                Default login: <span className="font-mono font-bold text-amber-300">admin / admin123</span>
-                <br />
-                (Login karke Settings vich ton password badal sakde ho)
-              </div>
             </div>
           </div>
         ) : (
