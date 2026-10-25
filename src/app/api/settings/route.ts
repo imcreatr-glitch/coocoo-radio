@@ -2,7 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSessionFromRequest } from "@/lib/auth";
 
-const KEYS = ["stationName", "tagline", "liveMode", "liveUrl", "playlist"] as const;
+const KEYS = [
+  "stationName",
+  "tagline",
+  "liveMode",
+  "liveUrl",
+  "playlist",
+  "liveTitle",
+  "liveImage",
+  "streamLibrary",
+] as const;
 
 export async function GET() {
   const rows = await db.setting.findMany();
@@ -14,6 +23,9 @@ export async function GET() {
     liveMode: map.liveMode || "auto",
     liveUrl: map.liveUrl || "",
     playlist: map.playlist || "",
+    liveTitle: map.liveTitle || "Darbar Sahib Live",
+    liveImage: map.liveImage || "",
+    streamLibrary: map.streamLibrary || "",
   });
 }
 
