@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSessionFromRequest } from "@/lib/auth";
 
-const KEYS = ["stationName", "tagline", "liveMode", "liveUrl"] as const;
+const KEYS = ["stationName", "tagline", "liveMode", "liveUrl", "playlist"] as const;
 
 export async function GET() {
   const rows = await db.setting.findMany();
@@ -13,6 +13,7 @@ export async function GET() {
     tagline: map.tagline || "ਹਰ ਪੱਲ ਤੁਹਾਡੇ ਨਾਲ • Punjabi • English",
     liveMode: map.liveMode || "auto",
     liveUrl: map.liveUrl || "",
+    playlist: map.playlist || "",
   });
 }
 
