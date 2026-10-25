@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Music2, Pause, Play, SkipBack, SkipForward, Volume2, VolumeX, Wifi } from "lucide-react";
+import { Music2, Pause, Play, Radio, SkipBack, SkipForward, Square, Volume2, VolumeX, Wifi } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Equalizer } from "@/components/site/hero";
 import { usePlayer } from "@/lib/store";
-import { getToken } from "@/lib/client-auth";
+import { adminFetch, getToken } from "@/lib/client-auth";
+import { parseStreamLibrary } from "@/lib/types";
 
 function fmt(sec: number): string {
   if (!isFinite(sec) || sec < 0) return "0:00";
@@ -30,10 +31,37 @@ export default function PlayerBar() {
 
   const [muted, setMuted] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [tuning, setTuning] = useState(false);
   // radio-style: visitors only get play/pause + volume; skip buttons are admin-only
   const [isAdmin, setIsAdmin] = useState(false);
   const isStream = settings.liveMode === "stream" && !!settings.liveUrl;
   const current = tracks.length > 0 ? tracks[index % tracks.length] : null;
+  const canGurbani = !!settings.liveUrl || parseStreamLibrary(settings.streamLibrary).length > 0;
+
+  /** admin one-click: Gurbani ON (stream) / OFF (songs auto-pilot) */
+  const gurbaniToggle = async () => {
+    if (tuning) return;
+    setTuning(true);
+    try {
+      const s = usePlayer.getState();
+      const toStream = s.settings.liveMode !== "stream";
+      let liveUrl = s.settings.liveUrl;
+      if (toStream && !liveUrl) {
+        liveUrl = parseStreamLibrary(s.settings.streamLibrary)[0]?.url || "";
+        if (!liveUrl) return;
+      }
+      await adminFetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ liveMode: toStream ? "stream" : "auto", liveUrl }),
+      });
+      await s.refreshContext();
+    } catch {
+      // ignore — button just stays as-is
+    } finally {
+      setTuning(false);
+    }
+  };
 
   // ensure audio element exists on mount
   useEffect(() => {
@@ -100,6 +128,22 @@ export default function PlayerBar() {
           </div>
         )}
 
+        {isAdmin && canGurbani && (
+          <button
+            type="button"
+            onClick={gurbaniToggle}
+            aria-label={isStream ? "Gurbani band karo — songs chalu" : "Gurbani chalao"}
+            title={isStream ? "Gurbani BAND karo (songs chalu)" : "Gurbani ON karo"}
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition ${
+              isStream
+                ? "border-red-400/50 bg-red-500/20 text-red-300"
+                : "border-amber-400/30 text-amber-200/80 hover:bg-amber-400/10"
+            }`}
+          >
+            {isStream ? <Square className="h-3.5 w-3.5" /> : <Radio className="h-4 w-4" />}
+          </button>
+        )}
+
         {/* Track info */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -116,7 +160,7 @@ export default function PlayerBar() {
           </div>
           <p className="mt-0.5 truncate text-sm font-semibold text-amber-50" data-testid="player-track">
             {isStream
-              ? "Direct live stream chal rahi hai"
+              ? `🔴 ${settings.liveTitle || "Darbar Sahib Live"}`
               : current
                 ? `🎵 ${current.title}${current.artist ? ` — ${current.artist}` : ""}`
                 : bootstrapped
