@@ -67,6 +67,34 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
             shows with YouTube videos — te saver saver murge da swagat!
           </p>
 
+          {/* Live player card — vertical photo (jive video player) when stream mode + photo set */}
+          {settings.liveMode === "stream" && settings.liveImage && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              onClick={toggle}
+              data-testid="live-player-card"
+              aria-label={playing ? "Live stream pause karo" : "Live stream chalao"}
+              className="relative mt-6 h-80 w-full max-w-xs cursor-pointer overflow-hidden rounded-2xl border border-amber-400/30 shadow-[0_16px_50px_rgba(0,0,0,0.5)]"
+            >
+              <img src={settings.liveImage} alt={settings.liveTitle || "Live"} className="h-full w-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/20" />
+              {!playing && (
+                <span className="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-black/55 text-amber-200 backdrop-blur-sm">
+                  <Play className="ml-1 h-7 w-7" />
+                </span>
+              )}
+              <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 p-3">
+                <Badge className="live-dot gap-1 border-0 bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                  LIVE
+                </Badge>
+                <span className="truncate text-sm font-bold text-white">{settings.liveTitle || "Darbar Sahib Live"}</span>
+                <Equalizer playing={playing} bars={4} className="ml-auto h-4" />
+              </div>
+            </motion.div>
+          )}
+
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <Button
               size="lg"
@@ -85,7 +113,7 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
               </p>
               <p className="mt-0.5 max-w-[260px] truncate text-sm font-medium text-amber-50 sm:max-w-xs" data-testid="hero-track">
                 {settings.liveMode === "stream"
-                  ? "🔴 Live Stream"
+                  ? `🔴 ${settings.liveTitle || "Darbar Sahib Live"}`
                   : currentTrack
                     ? `🎵 ${currentTrack.title}${currentTrack.artist ? ` — ${currentTrack.artist}` : ""}`
                     : "Auto-Pilot 24x7 playlist ready"}
