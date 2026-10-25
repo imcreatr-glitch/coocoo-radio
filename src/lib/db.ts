@@ -46,4 +46,50 @@ function materializeServerlessDb(): string {
         fs.copyFileSync(candidate, target)
         console.log("[coocoo:db] materialized from traced file:", candidate)
         return target
-      } catch (
+      } catch (err) {
+        console.error("[coocoo:db] copy failed:", candidate, err)
+      }
+    }
+  }
+  try {
+    fs.writeFileSync(target, Buffer.from(BUNDLED_DB_B64, "base64"))
+    console.log("[coocoo:db] materialized from bundled snapshot")
+  } catch (err) {
+    console.error("[coocoo:db] FATAL: could not materialize database:", err)
+  }
+  return target
+}
+
+/**
+ * Local-file fallback (no Turso env vars):
+ * - serverless: materialize the seeded db into /tmp
+ * - local dev: use ./db/custom.db
+ */
+if (!TURSO_URL) {
+  if (isServerlessRuntime()) {
+    process.env.DATABASE_URL = `file:${materializeServerlessDb()}`
+  } else if (!process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = `file:${path.join(process.cwd(), "db", "custom.db")}`
+  }
+}
+
+function makePrismaClient(): PrismaClient {
+  if (TURSO_URL) {
+    console.log("[coocoo:db] using Turso cloud database:", TURSO_URL)
+    // timestampFormat unixepoch-ms: Prisma stores DateTime as ms integers in
+    // SQLite, and the seeded/legacy rows use the same convention.
+    const adapter = new PrismaLibSQL(
+      { url: TURSO_URL, authToken: TURSO_TOKEN || undefined },
+      { timestampFormat: "unixepoch-ms" }
+    )
+    return new PrismaClient({ adapter })
+  }
+  return new PrismaClient()
+}
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined
+}
+
+export const db = globalForPrisma.prisma ?? makePrismaClient()
+globalForPrisma.prisma = db
