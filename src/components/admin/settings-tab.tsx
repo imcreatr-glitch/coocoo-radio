@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { KeyRound, Loader2, Radio, Save, Wifi } from "lucide-react";
+import { ImagePlus, KeyRound, Loader2, Plus, Radio, Save, Square, Trash2, Wifi } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -9,7 +10,14 @@ import { useToast } from "@/hooks/use-toast";
 import { usePlayer } from "@/lib/store";
 import { adminFetch } from "@/lib/client-auth";
 import type { StationSettings } from "@/lib/types";
-import { FieldLabel } from "@/components/admin/shared";
+import { parseStreamLibrary, type StreamEntry } from "@/lib/types";
+import { FieldLabel, FilePick } from "@/components/admin/shared";
+
+/** Built-in preset — hamesha library ch dikhega (jadon tak khud add nahi kitta) */
+const SGPC_PRESET: StreamEntry = {
+  name: "SGPC Darbar Sahib Live (128kbps)",
+  url: "https://live.sgpc.net:8443/;",
+};
 
 export default function SettingsTab() {
   const { toast } = useToast();
@@ -19,8 +27,20 @@ export default function SettingsTab() {
     tagline: "",
     liveMode: "auto",
     liveUrl: "",
+    liveTitle: "",
+    liveImage: "",
+    streamLibrary: "",
   });
   const [saving, setSaving] = useState(false);
+
+  // gurbani library form
+  const [libName, setLibName] = useState("");
+  const [libUrl, setLibUrl] = useState("");
+  const [libSaving, setLibSaving] = useState(false);
+
+  // live photo upload
+  const [imgFile, setImgFile] = useState<File | null>(null);
+  const [imgUploading, setImgUploading] = useState(false);
 
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -30,9 +50,22 @@ export default function SettingsTab() {
   useEffect(() => {
     fetch("/api/settings", { cache: "no-store" })
       .then((r) => r.json())
-      .then((data: StationSettings) => setSettings(data))
+      .then((data: StationSettings) => setSettings((s) => ({ ...s, ...data })))
       .catch(() => {});
   }, []);
+
+  /** PATCH-karo style save: sirf eh keys bhejde aan, local state + player refresh */
+  const putSettings = async (patch: Partial<StationSettings>, okMsg: string) => {
+    const res = await adminFetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    if (!res.ok) throw new Error("Save fail");
+    setSettings((s) => ({ ...s, ...patch }));
+    await refreshContext();
+    toast({ title: okMsg });
+  };
 
   const save = async () => {
     setSaving(true);
@@ -49,6 +82,76 @@ export default function SettingsTab() {
       toast({ title: "Save nahi hoyian", variant: "destructive" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ── gurbani library helpers ──
+  const library: StreamEntry[] = parseStreamLibrary(settings.streamLibrary);
+  const shownLib: StreamEntry[] = library.length > 0 ? library : [SGPC_PRESET];
+
+  const streamOn = async (entry: StreamEntry) => {
+    try {
+      await putSettings(
+        { liveMode: "stream", liveUrl: entry.url, liveTitle: settings.liveTitle || entry.name },
+        `🔴 ${entry.name} ON ho gayi!`
+      );
+    } catch {
+      toast({ title: "ON nahi hoya — dubara koshish karo", variant: "destructive" });
+    }
+  };
+
+  const streamOff = async () => {
+    try {
+      await putSettings({ liveMode: "auto" }, "🎵 Live BAND — hun songs auto-pilot chalnge");
+    } catch {
+      toast({ title: "BAND nahi hoya — dubara koshish karo", variant: "destructive" });
+    }
+  };
+
+  const addStream = async () => {
+    if (!libUrl.trim()) {
+      toast({ title: "Stream da URL pao", variant: "destructive" });
+      return;
+    }
+    const base = library.length > 0 ? library : [SGPC_PRESET];
+    const next = [...base.filter((e) => e.url !== libUrl.trim()), { name: libName.trim() || "Live Stream", url: libUrl.trim() }];
+    setLibSaving(true);
+    try {
+      await putSettings({ streamLibrary: JSON.stringify(next) }, "📺 Library ch add ho gaya!");
+      setLibName("");
+      setLibUrl("");
+    } catch {
+      toast({ title: "Add nahi hoya", variant: "destructive" });
+    } finally {
+      setLibSaving(false);
+    }
+  };
+
+  const delStream = async (url: string) => {
+    const next = library.filter((e) => e.url !== url);
+    try {
+      await putSettings({ streamLibrary: JSON.stringify(next) }, "Library ton kadh gaya");
+    } catch {
+      toast({ title: "Delete nahi hoya", variant: "destructive" });
+    }
+  };
+
+  // ── live photo upload ──
+  const uploadLiveImg = async (f: File) => {
+    setImgFile(f);
+    setImgUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", f);
+      const res = await adminFetch("/api/uploads?action=single", { method: "POST", body: fd });
+      const j = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !j.url) throw new Error(j.error || "Upload fail");
+      setSettings((s) => ({ ...s, liveImage: j.url as string }));
+      toast({ title: "🖼️ Photo upload ho gayi!", description: "Hun 'Save karo' zaroor dabao" });
+    } catch (e) {
+      toast({ title: "Photo upload nahi hoi", description: e instanceof Error ? e.message : "", variant: "destructive" });
+    } finally {
+      setImgUploading(false);
     }
   };
 
@@ -82,6 +185,8 @@ export default function SettingsTab() {
       setPwSaving(false);
     }
   };
+
+  const isStreamOn = settings.liveMode === "stream";
 
   return (
     <div className="space-y-6">
@@ -142,14 +247,14 @@ export default function SettingsTab() {
                 <div>
                   <p className="text-sm font-bold text-amber-100">📡 Live Stream URL</p>
                   <p className="mt-0.5 text-xs text-amber-100/60">
-                    Icecast / Shoutcast / koi bhi live stream link pao — oh direct 24x7 chalega.
+                    Gurbani Library ton ek click ON kar sakde ho (hethan card vekho) ja URL khud pao.
                   </p>
                 </div>
               </label>
             </RadioGroup>
           </div>
 
-          {settings.liveMode === "stream" && (
+          {isStreamOn && (
             <div className="space-y-1.5" data-testid="live-url-wrap">
               <FieldLabel>Live Stream URL</FieldLabel>
               <Input
@@ -159,19 +264,127 @@ export default function SettingsTab() {
                 inputMode="url"
               />
               <p className="flex items-center gap-1.5 text-xs text-amber-100/50">
-                <Wifi className="h-3 w-3" /> Pehla stream URL browser vich test karke hi save karo.
+                <Wifi className="h-3 w-3" /> Pehla stream URL browser vich test karke hi save karo — ja Gurbani Library card ton ON karo.
               </p>
             </div>
           )}
 
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <FieldLabel>Live da naam (uthe likhea hovega)</FieldLabel>
+              <Input
+                value={settings.liveTitle || ""}
+                onChange={(e) => setSettings((s) => ({ ...s, liveTitle: e.target.value }))}
+                placeholder="Darbar Sahib Live"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <FieldLabel>Live di vertical photo (optional — hero player ch dikhegi)</FieldLabel>
+              <FilePick
+                accept="image/*"
+                fileName={imgFile?.name}
+                onChange={(f) => {
+                  if (f) uploadLiveImg(f);
+                }}
+              />
+              {imgUploading && (
+                <p className="flex items-center gap-1.5 text-xs text-amber-300">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Upload ho rahi hai...
+                </p>
+              )}
+              {!imgUploading && settings.liveImage && (
+                <p className="flex items-center gap-2 text-xs text-green-400">
+                  <ImagePlus className="h-3.5 w-3.5" /> Photo set hai — Save karo te site te dikhegi
+                </p>
+              )}
+            </div>
+          </div>
+
           <Button
             onClick={save}
-            disabled={saving}
+            disabled={saving || imgUploading}
             data-testid="settings-save"
             className="border-0 bg-gradient-to-r from-amber-400 to-orange-500 font-bold text-black hover:from-amber-300 hover:to-orange-400"
           >
             {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />}
             Save karo
+          </Button>
+        </div>
+      </div>
+
+      {/* ── Gurbani Library — ek click ON/OFF ── */}
+      <div className="rounded-2xl border border-red-400/25 bg-[oklch(0.21_0.018_60)] p-5" data-testid="gurbani-library">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-base font-bold text-amber-100">
+            📺 Gurbani / Live Library <span className="text-xs font-normal text-amber-100/50">(ek click ON/OFF)</span>
+          </h3>
+          {isStreamOn ? (
+            <Badge className="live-dot gap-1 border-0 bg-red-600 text-[10px] font-bold text-white">LIVE CHAL RYA HAAN</Badge>
+          ) : (
+            <Badge variant="outline" className="border-amber-400/40 text-[10px] uppercase text-amber-300">Band hai — songs chal rahe ne</Badge>
+          )}
+        </div>
+        <p className="mb-3 text-xs text-amber-100/60">
+          Live stream ethe save rehnda hai. Jado gurbani chalani hove — <b className="text-amber-300">ON karo</b> dabao.
+          Khatam karni hove — <b className="text-amber-300">BAND karo</b> dabao, fer apne songs auto chalne ge.
+        </p>
+
+        <div className="nice-scroll max-h-56 space-y-2 overflow-y-auto pr-1">
+          {shownLib.map((entry) => {
+            const active = isStreamOn && settings.liveUrl === entry.url;
+            return (
+              <div key={entry.url} className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-400/10 bg-black/25 px-3 py-2.5">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-amber-50">{entry.name}</p>
+                  <p className="truncate text-xs text-amber-100/50">{entry.url}</p>
+                </div>
+                {active ? (
+                  <Badge className="shrink-0 gap-1 border-0 bg-green-600 text-[10px] font-bold text-white">● CHAL RYA</Badge>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={() => streamOn(entry)}
+                    className="shrink-0 border-0 bg-gradient-to-r from-red-500 to-orange-500 text-xs font-bold text-white hover:from-red-400 hover:to-orange-400"
+                  >
+                    🔴 ON karo
+                  </Button>
+                )}
+                {library.some((e) => e.url === entry.url) && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`${entry.name} library ton kado`}
+                    onClick={() => delStream(entry.url)}
+                    className="h-8 w-8 shrink-0 text-red-300 hover:bg-red-400/15"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button
+            onClick={streamOff}
+            disabled={!isStreamOn}
+            variant="outline"
+            className="border-red-400/40 text-red-300 disabled:opacity-40"
+          >
+            <Square className="mr-1.5 h-3.5 w-3.5" /> ⏹ BAND karo (songs chalu)
+          </Button>
+        </div>
+
+        <div className="mt-4 space-y-2 border-t border-amber-400/15 pt-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-amber-300/80">Nava stream library ch add karo</p>
+          <div className="grid gap-2 sm:grid-cols-[1fr_1.4fr]">
+            <Input value={libName} onChange={(e) => setLibName(e.target.value)} placeholder="Naam (jiven: 24kbps slow)" />
+            <Input value={libUrl} onChange={(e) => setLibUrl(e.target.value)} placeholder="https://stream-url..." inputMode="url" />
+          </div>
+          <Button onClick={addStream} disabled={libSaving} variant="outline" className="border-amber-400/40 text-amber-200">
+            {libSaving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}
+            Library ch add karo
           </Button>
         </div>
       </div>
