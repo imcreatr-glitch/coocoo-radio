@@ -32,6 +32,8 @@ export async function saveUploadedFile(file: File, prefix: string): Promise<stri
  * Delete an uploaded file referenced by a DB row URL.
  * Handles both the new /api/media/<name> scheme and the legacy /uploads/<name>
  * scheme (old rows). External cloud URLs are ignored.
+ * Blob delete is verified with a strong-consistency read; errors are logged
+ * (visible in Netlify Logs -> Functions) instead of being swallowed.
  */
 export async function removeUploadedFile(url: string): Promise<void> {
   if (!url) return;
@@ -46,8 +48,19 @@ export async function removeUploadedFile(url: string): Promise<void> {
     try {
       const store = getStore(BLOBS_STORE);
       await store.delete(name);
-    } catch {
-      // blob may already be gone
+
+      // Blobs is eventually consistent by default (up to 60s). Verify with a
+      // strong read and retry once so the file is really gone.
+      const strong = getStore({ name: BLOBS_STORE, consistency: "strong" });
+      const left = await strong.get(name);
+      if (left) {
+        console.error("[coocoo:upload] blob survived delete, retrying:", name);
+        await strong.delete(name);
+        const again = await strong.get(name);
+        console.error("[coocoo:upload] retry:", again ? "STILL PRESENT" : "deleted ok");
+      }
+    } catch (err) {
+      console.error("[coocoo:upload] blob delete failed:", name, err);
     }
     return;
   }
