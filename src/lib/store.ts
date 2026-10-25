@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS } from "@/lib/types";
 
 interface PlayerState {
   audio: HTMLAudioElement | null;
-  tracks: Song[];
+  tracks: Song[]; // ACTIVE queue: admin playlist order when set, else all songs
   index: number;
   playing: boolean;
   settings: StationSettings;
@@ -24,6 +24,22 @@ interface PlayerState {
   setVolume: (v: number) => void;
   playIndex: (i: number) => void;
   playSong: (id: string) => void;
+  playSongNow: (song: Song) => void;
+}
+
+/** Order songs by the admin's saved live playlist (JSON ids). Fallback: all songs. */
+function buildQueue(settings: StationSettings, songs: Song[]): Song[] {
+  const raw = (settings.playlist || "").trim();
+  if (!raw) return songs;
+  try {
+    const ids = JSON.parse(raw) as string[];
+    if (!Array.isArray(ids) || ids.length === 0) return songs;
+    const byId = new Map(songs.map((s) => [s.id, s]));
+    const queue = ids.map((id) => byId.get(id)).filter((s): s is Song => !!s);
+    return queue.length > 0 ? queue : songs;
+  } catch {
+    return songs;
+  }
 }
 
 function loadSrc(state: PlayerState): string | null {
@@ -56,7 +72,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       set({ currentSrc: src });
     }
     audio.addEventListener("ended", () => {
-      // 24x7 auto-pilot: loop the playlist forever
+      // 24x7 auto-pilot: loop the live queue forever
       const s = get();
       if (s.settings.liveMode === "stream") return;
       s.next();
@@ -78,10 +94,11 @@ export const usePlayer = create<PlayerState>((set, get) => ({
         fetch("/api/songs", { cache: "no-store" }),
       ]);
       const settings = (await settingsRes.json()) as StationSettings;
-      const tracks = (await songsRes.json()) as Song[];
+      const songs = (await songsRes.json()) as Song[];
       const prevSrc = get().currentSrc;
       const wasPlaying = get().playing;
-      set({ settings, tracks, bootstrapped: true });
+      const ordered = buildQueue(settings, Array.isArray(songs) ? songs : []);
+      set({ settings, tracks: ordered, bootstrapped: true });
       const audio = get().audio;
       if (!audio) return;
       const src = loadSrc(get());
@@ -112,18 +129,13 @@ export const usePlayer = create<PlayerState>((set, get) => ({
 
   play: () => {
     get().initAudio();
-    const { audio, tracks, settings } = get();
+    const { audio, settings } = get();
     if (!audio) return;
-    let src = loadSrc(get());
-    if (!src) {
-      if (settings.liveMode === "auto" && tracks.length === 0) {
-        // no songs yet
-      }
-      return;
-    }
+    const src = loadSrc(get());
+    if (!src) return;
     if (audio.src !== new URL(src, window.location.href).href) {
       audio.src = src;
-      set({ currentSrc: src, audio });
+      set({ currentSrc: src });
     }
     audio.play().catch(() => {});
   },
@@ -184,5 +196,17 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     const { tracks } = get();
     const i = tracks.findIndex((t) => t.id === id);
     if (i >= 0) get().playIndex(i);
+  },
+
+  /** Play any song immediately; if it is not in the live queue, add it to the end first. */
+  playSongNow: (song: Song) => {
+    const { tracks } = get();
+    const i = tracks.findIndex((t) => t.id === song.id);
+    if (i >= 0) {
+      get().playIndex(i);
+      return;
+    }
+    set({ tracks: [...tracks, song] });
+    get().playIndex(tracks.length);
   },
 }));
