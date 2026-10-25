@@ -1,18 +1,30 @@
 import fs from "fs/promises";
 import path from "path";
-import { UPLOAD_DIR } from "./storage";
+import { getStore } from "@netlify/blobs";
+import { IS_SERVERLESS, UPLOAD_DIR } from "./storage";
 
 /**
- * Save an uploaded file and return a stable public URL.
- * The file lives in UPLOAD_DIR and is served via /api/media/<name> — this works
- * identically in local dev (read-write FS) and on Netlify (uploads in /tmp).
+ * Uploaded media storage.
+ * - Netlify (serverless): files go to Netlify Blobs — PERMANENT, survives
+ *   restarts and cold starts (free tier friendly).
+ * - Local dev: files go to UPLOAD_DIR on disk, same as before.
+ * Both return the same public URL scheme: /api/media/<name>.
  */
+const BLOBS_STORE = "coocoo-uploads";
+
 export async function saveUploadedFile(file: File, prefix: string): Promise<string> {
-  await fs.mkdir(UPLOAD_DIR, { recursive: true });
   const ext = path.extname(file.name || "").toLowerCase() || "";
   const safe = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
-  const buf = Buffer.from(await file.arrayBuffer());
-  await fs.writeFile(path.join(UPLOAD_DIR, safe), buf);
+  const ab = await file.arrayBuffer();
+
+  if (IS_SERVERLESS) {
+    const store = getStore(BLOBS_STORE);
+    await store.set(safe, ab);
+    return `/api/media/${safe}`;
+  }
+
+  await fs.mkdir(UPLOAD_DIR, { recursive: true });
+  await fs.writeFile(path.join(UPLOAD_DIR, safe), Buffer.from(ab));
   return `/api/media/${safe}`;
 }
 
@@ -29,6 +41,17 @@ export async function removeUploadedFile(url: string): Promise<void> {
   else return; // external URL — nothing stored locally
   name = path.basename(name);
   if (!name || name.startsWith(".")) return;
+
+  if (IS_SERVERLESS) {
+    try {
+      const store = getStore(BLOBS_STORE);
+      await store.delete(name);
+    } catch {
+      // blob may already be gone
+    }
+    return;
+  }
+
   try {
     await fs.unlink(path.join(UPLOAD_DIR, name));
   } catch {
