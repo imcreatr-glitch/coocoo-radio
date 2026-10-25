@@ -12,6 +12,9 @@ import { IS_SERVERLESS, UPLOAD_DIR } from "./storage";
  */
 const BLOBS_STORE = "coocoo-uploads";
 
+/** Strongly-consistent store handle — read-after-write safe (chunk assembly). */
+const strongStore = () => getStore({ name: BLOBS_STORE, consistency: "strong" });
+
 export async function saveUploadedFile(file: File, prefix: string): Promise<string> {
   const ext = path.extname(file.name || "").toLowerCase() || "";
   const safe = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
@@ -26,6 +29,66 @@ export async function saveUploadedFile(file: File, prefix: string): Promise<stri
   await fs.mkdir(UPLOAD_DIR, { recursive: true });
   await fs.writeFile(path.join(UPLOAD_DIR, safe), Buffer.from(ab));
   return `/api/media/${safe}`;
+}
+
+/**
+ * Chunked upload support for files larger than the Netlify 6MB function
+ * request-body limit. The browser sends the file in 4MB slices; each slice
+ * is stored as its own blob, then finalizeChunkedUpload() stitches them
+ * together into the final blob and cleans the slices up.
+ */
+export const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB — safely under the 6MB limit
+
+export async function initChunkedUpload(uploadId: string): Promise<void> {
+  if (IS_SERVERLESS) return; // blobs are key/value — nothing to prepare
+  await fs.mkdir(path.join(UPLOAD_DIR, "chunks", uploadId), { recursive: true });
+}
+
+export async function storeChunk(uploadId: string, index: number, data: ArrayBuffer): Promise<void> {
+  if (IS_SERVERLESS) {
+    await strongStore().set(`up/${uploadId}/${index}`, data);
+    return;
+  }
+  await fs.writeFile(path.join(UPLOAD_DIR, "chunks", uploadId, String(index)), Buffer.from(data));
+}
+
+export async function finalizeChunkedUpload(
+  uploadId: string,
+  count: number,
+  filename: string
+): Promise<string> {
+  const ext = path.extname(filename || "").toLowerCase() || "";
+  const safe = `song-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+
+  if (IS_SERVERLESS) {
+    const store = strongStore();
+    const parts: Buffer[] = [];
+    for (let i = 0; i < count; i++) {
+      const blob = await store.get(`up/${uploadId}/${i}`, { type: "arrayBuffer" });
+      if (!blob) throw new Error(`chunk ${i} missing`);
+      parts.push(Buffer.from(blob));
+    }
+    await store.set(safe, Buffer.concat(parts));
+    // best-effort cleanup of the slice blobs
+    for (let i = 0; i < count; i++) {
+      try {
+        await store.delete(`up/${uploadId}/${i}`);
+      } catch {
+        // slice may already be gone — fine
+      }
+    }
+    return safe;
+  }
+
+  const dir = path.join(UPLOAD_DIR, "chunks", uploadId);
+  const parts: Buffer[] = [];
+  for (let i = 0; i < count; i++) {
+    parts.push(await fs.readFile(path.join(dir, String(i))));
+  }
+  await fs.mkdir(UPLOAD_DIR, { recursive: true });
+  await fs.writeFile(path.join(UPLOAD_DIR, safe), Buffer.concat(parts));
+  await fs.rm(dir, { recursive: true, force: true });
+  return safe;
 }
 
 /**
