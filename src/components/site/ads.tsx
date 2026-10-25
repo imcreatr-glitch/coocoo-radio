@@ -6,6 +6,7 @@ import { ExternalLink, Image as ImageIcon, Megaphone, Video } from "lucide-react
 import { Badge } from "@/components/ui/badge";
 import { SectionTitle } from "@/components/site/schedule";
 import type { AdItem } from "@/lib/types";
+import { ytEmbed } from "@/lib/types";
 
 export default function AdsSection() {
   const [ads, setAds] = useState<AdItem[]>([]);
@@ -75,22 +76,34 @@ export default function AdsSection() {
 
       {videoAds.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2" data-testid="video-ads">
-          {videoAds.map((ad) => (
+          {videoAds.map((ad) => {
+            const yt = ytEmbed(ad.mediaUrl);
+            return (
             <div
               key={ad.id}
               className="overflow-hidden rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)] shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
             >
               <div className="relative aspect-video w-full bg-black">
-                <video
-                  src={ad.mediaUrl}
-                  controls
-                  muted
-                  loop
-                  playsInline
-                  preload="metadata"
-                  className="h-full w-full object-contain"
-                  aria-label={`${ad.title} video ad`}
-                />
+                {yt ? (
+                  <iframe
+                    src={yt}
+                    title={`${ad.title} video ad`}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="h-full w-full"
+                  />
+                ) : (
+                  <video
+                    src={ad.mediaUrl}
+                    controls
+                    muted
+                    loop
+                    playsInline
+                    preload="metadata"
+                    className="h-full w-full object-contain"
+                    aria-label={`${ad.title} video ad`}
+                  />
+                )}
               </div>
               <div className="flex items-center justify-between p-3">
                 <span className="flex items-center gap-2 truncate text-sm font-semibold text-amber-100">
@@ -114,7 +127,8 @@ export default function AdsSection() {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>
