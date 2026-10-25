@@ -1,7 +1,9 @@
 generator client {
-  provider      = "prisma-client-js"
+  provider        = "prisma-client-js"
   // rhel-openssl-3.0 = Netlify/AWS Lambda (Amazon Linux) query engine
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  binaryTargets   = ["native", "rhel-openssl-3.0.x"]
+  // driverAdapters = Turso/libSQL cloud database support
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
