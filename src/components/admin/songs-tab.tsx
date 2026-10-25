@@ -12,11 +12,16 @@ import { adminFetch } from "@/lib/client-auth";
 import type { Song } from "@/lib/types";
 import { DangerButton, EmptyRow, FieldLabel, FilePick } from "@/components/admin/shared";
 
+// Files bigger than this go through the chunked upload flow
+// (Netlify functions reject request bodies over 6MB).
+const CHUNK_LIMIT = 4 * 1024 * 1024;
+
 export default function SongsTab({ onChanged }: { onChanged?: () => void }) {
   const { toast } = useToast();
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState("");
 
   // upload form
   const [file, setFile] = useState<File | null>(null);
@@ -52,21 +57,73 @@ export default function SongsTab({ onChanged }: { onChanged?: () => void }) {
     onChanged?.();
   };
 
+  /** big files: slice into 4MB pieces and upload one by one */
+  const uploadChunked = async (f: File) => {
+    const initRes = await adminFetch("/api/uploads?action=init", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: f.name, size: f.size }),
+    });
+    if (!initRes.ok) {
+      const j = (await initRes.json().catch(() => ({}))) as { error?: string };
+      throw new Error(j.error || "Upload shuru nahi hoya");
+    }
+    const { uploadId, chunkSize, total } = (await initRes.json()) as {
+      uploadId: string;
+      chunkSize: number;
+      total: number;
+    };
+
+    for (let i = 0; i < total; i++) {
+      const slice = f.slice(i * chunkSize, Math.min((i + 1) * chunkSize, f.size));
+      const cRes = await adminFetch(
+        `/api/uploads?action=chunk&uploadId=${encodeURIComponent(uploadId)}&index=${i}`,
+        { method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: slice }
+      );
+      if (!cRes.ok) {
+        const j = (await cRes.json().catch(() => ({}))) as { error?: string };
+        throw new Error(j.error || `Chunk ${i + 1}/${total} fail ho gaya`);
+      }
+      setProgress(`${i + 1}/${total}`);
+    }
+
+    const doneRes = await adminFetch("/api/uploads?action=complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        uploadId,
+        filename: f.name,
+        count: total,
+        title: upTitle.trim(),
+        artist: upArtist.trim(),
+      }),
+    });
+    if (!doneRes.ok) {
+      const j = (await doneRes.json().catch(() => ({}))) as { error?: string };
+      throw new Error(j.error || "Upload poora nahi hoya");
+    }
+  };
+
   const submitUpload = async () => {
     if (!file) {
       toast({ title: "Pehla MP3 file chuno", variant: "destructive" });
       return;
     }
     setUploading(true);
+    setProgress("");
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      if (upTitle.trim()) fd.append("title", upTitle.trim());
-      if (upArtist.trim()) fd.append("artist", upArtist.trim());
-      const res = await adminFetch("/api/songs", { method: "POST", body: fd });
-      if (!res.ok) {
-        const j = (await res.json()) as { error?: string };
-        throw new Error(j.error || "Upload fail");
+      if (file.size > CHUNK_LIMIT) {
+        await uploadChunked(file);
+      } else {
+        const fd = new FormData();
+        fd.append("file", file);
+        if (upTitle.trim()) fd.append("title", upTitle.trim());
+        if (upArtist.trim()) fd.append("artist", upArtist.trim());
+        const res = await adminFetch("/api/songs", { method: "POST", body: fd });
+        if (!res.ok) {
+          const j = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(j.error || "Upload fail");
+        }
       }
       toast({ title: "🎵 Song upload ho gaya!", description: `${upTitle || file.name} playlist vich add ho gaya` });
       setFile(null);
@@ -78,6 +135,7 @@ export default function SongsTab({ onChanged }: { onChanged?: () => void }) {
       toast({ title: "Upload fail ho gaya", description: e instanceof Error ? e.message : "", variant: "destructive" });
     } finally {
       setUploading(false);
+      setProgress("");
     }
   };
 
@@ -94,7 +152,7 @@ export default function SongsTab({ onChanged }: { onChanged?: () => void }) {
         body: JSON.stringify({ url: linkUrl.trim(), title: linkTitle.trim(), artist: linkArtist.trim() }),
       });
       if (!res.ok) {
-        const j = (await res.json()) as { error?: string };
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(j.error || "Link add fail");
       }
       toast({ title: "🔗 Cloud song add ho gaya!", description: linkTitle || linkUrl });
@@ -161,89 +219,8 @@ export default function SongsTab({ onChanged }: { onChanged?: () => void }) {
               className="border-0 bg-gradient-to-r from-amber-400 to-orange-500 font-bold text-black hover:from-amber-300 hover:to-orange-400"
             >
               {uploading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-              {uploading ? "Upload ho rahi hai..." : "Upload karo"}
+              {uploading ? (progress ? `Upload ho rahi hai... ${progress}` : "Upload ho rahi hai...") : "Upload karo"}
             </Button>
           </TabsContent>
 
-          <TabsContent value="link" className="space-y-3" data-testid="link-form">
-            <div className="space-y-1.5">
-              <FieldLabel>Cloud Song URL (Google Drive / Dropbox / koi bhi direct mp3 link)</FieldLabel>
-              <Input
-                value={linkUrl}
-                onChange={(e) => setLinkUrl(e.target.value)}
-                placeholder="https://example.com/song.mp3"
-                inputMode="url"
-              />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <FieldLabel>Song Title</FieldLabel>
-                <Input value={linkTitle} onChange={(e) => setLinkTitle(e.target.value)} placeholder="Title (optional)" />
-              </div>
-              <div className="space-y-1.5">
-                <FieldLabel>Artist (optional)</FieldLabel>
-                <Input value={linkArtist} onChange={(e) => setLinkArtist(e.target.value)} placeholder="Artist da naam" />
-              </div>
-            </div>
-            <Button
-              onClick={submitLink}
-              disabled={uploading}
-              data-testid="link-submit"
-              className="border-0 bg-gradient-to-r from-amber-400 to-orange-500 font-bold text-black hover:from-amber-300 hover:to-orange-400"
-            >
-              {uploading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-              Link add karo
-            </Button>
-          </TabsContent>
-        </Tabs>
-      </div>
-
-      {/* Songs list */}
-      <div className="rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)] p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-base font-bold text-amber-100">Playlist ({songs.length} songs)</h3>
-        </div>
-        {loading ? (
-          <EmptyRow text="Load ho raha hai..." />
-        ) : songs.length === 0 ? (
-          <EmptyRow text="Hale koi song nahi. Upar ton add karo!" />
-        ) : (
-          <div className="nice-scroll max-h-96 space-y-2 overflow-y-auto pr-1" data-testid="songs-list">
-            {songs.map((s, i) => (
-              <div
-                key={s.id}
-                className="flex items-center gap-3 rounded-xl border border-amber-400/10 bg-black/25 px-3 py-2.5"
-                data-testid={`song-row-${i}`}
-              >
-                <span className="w-6 shrink-0 text-center font-mono text-xs text-amber-400/70">{i + 1}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-amber-50">{s.title}</p>
-                  <p className="truncate text-xs text-amber-100/50">
-                    {s.artist ? `${s.artist} • ` : ""}
-                    {s.url.length > 46 ? `${s.url.slice(0, 46)}...` : s.url}
-                  </p>
-                </div>
-                <Badge variant="outline" className="shrink-0 border-amber-400/30 text-[10px] uppercase text-amber-300">
-                  {s.source === "link" ? "Cloud" : "Upload"}
-                </Badge>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label={`${s.title} play karo`}
-                  onClick={() => {
-                    playSong(s.id);
-                    toast({ title: "▶️ Chal rahi hai", description: s.title });
-                  }}
-                  className="h-8 w-8 shrink-0 text-amber-300 hover:bg-amber-400/15 hover:text-amber-200"
-                >
-                  <Play className="h-4 w-4" />
-                </Button>
-                <DangerButton testId={`song-delete-${i}`} onConfirm={() => remove(s.id)} label={`${s.title} delete`} />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+          <TabsContent value="
