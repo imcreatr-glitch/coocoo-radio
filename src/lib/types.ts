@@ -54,6 +54,9 @@ export interface StationSettings {
   liveMode: string; // auto | stream
   liveUrl: string;
   playlist?: string; // JSON array of song ids — admin's manual live queue (""/absent = all songs)
+  liveTitle?: string; // label shown while stream plays (e.g. "Darbar Sahib Live")
+  liveImage?: string; // vertical photo shown in the hero live player card
+  streamLibrary?: string; // JSON array of StreamEntry — admin's saved live streams
 }
 
 export const DEFAULT_SETTINGS: StationSettings = {
@@ -62,7 +65,30 @@ export const DEFAULT_SETTINGS: StationSettings = {
   liveMode: "auto",
   liveUrl: "",
   playlist: "",
+  liveTitle: "",
+  liveImage: "",
+  streamLibrary: "",
 };
+
+/** One saved live stream in the admin's library */
+export interface StreamEntry {
+  name: string;
+  url: string;
+}
+
+/** Safe-parse the streamLibrary setting (never throws, always returns array) */
+export function parseStreamLibrary(raw?: string | null): StreamEntry[] {
+  if (!raw) return [];
+  try {
+    const v = JSON.parse(raw);
+    if (!Array.isArray(v)) return [];
+    return v
+      .filter((e): e is StreamEntry => !!e && typeof e.url === "string" && !!e.url.trim())
+      .map((e) => ({ name: typeof e.name === "string" && e.name.trim() ? e.name.trim() : "Live Stream", url: e.url.trim() }));
+  } catch {
+    return [];
+  }
+}
 
 export const DAY_NAMES = ["ਐਤਵਾਰ", "ਸੋਮਵਾਰ", "ਮੰਗਲਵਾਰ", "ਬੁੱਧਵਾਰ", "ਵੀਰਵਾਰ", "ਸ਼ੁੱਕਰਵਾਰ", "ਸ਼ਨਿੱਚਰਵਾਰ"];
 export const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -80,6 +106,14 @@ export function ytId(url: string): string | null {
 export function ytThumb(url: string): string | null {
   const id = ytId(url);
   return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null;
+}
+
+/** YouTube nocookie embed URL with ad-style autoplay (muted, looping) */
+export function ytEmbed(url: string): string | null {
+  const id = ytId(url);
+  return id
+    ? `https://www.youtube.com/embed/${id}?autoplay=1&mute=1&loop=1&playlist=${id}&controls=0&modestbranding=1&rel=0&playsinline=1`
+    : null;
 }
 
 /** Parse "HH:MM" to minutes */
