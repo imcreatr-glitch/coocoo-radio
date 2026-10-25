@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * CooCoo the Rooster — site mascot.
  * Sleeps at night, and every morning (5 AM - 11 AM) crows "ਕੁਕੜੂੰ ਕੂੰ! COO COO KDOOO!"
  * with a synthesized rooster crow (Web Audio). Click him anytime for a crow.
+ * Auto-crow is calm: once on load + every 30 minutes (configurable via prop).
  */
 
 const CROW_TEXT = "ਕੁਕੜੂੰ ਕੂੰ! COO COO KDOOO!";
@@ -85,11 +86,11 @@ export function useCrowSound() {
 
 interface RoosterProps {
   className?: string;
-  /** minutes between automatic morning crows */
+  /** seconds between automatic morning crows (default 30 minutes) */
   autoCrowEverySec?: number;
 }
 
-export default function Rooster({ className = "", autoCrowEverySec = 75 }: RoosterProps) {
+export default function Rooster({ className = "", autoCrowEverySec = 1800 }: RoosterProps) {
   const [crowing, setCrowing] = useState(false);
   const [bubble, setBubble] = useState(false);
   const [morning, setMorning] = useState(false);
@@ -139,7 +140,6 @@ export default function Rooster({ className = "", autoCrowEverySec = 75 }: Roost
     if (!morning) return;
     const t = window.setTimeout(() => doCrow(interactedRef.current), 2200);
     return () => window.clearTimeout(t);
-     
   }, [morning]);
 
   // periodic morning crows
@@ -147,7 +147,6 @@ export default function Rooster({ className = "", autoCrowEverySec = 75 }: Roost
     if (!morning) return;
     const t = window.setInterval(() => doCrow(interactedRef.current), autoCrowEverySec * 1000);
     return () => window.clearInterval(t);
-     
   }, [morning, autoCrowEverySec]);
 
   return (
@@ -181,9 +180,6 @@ export default function Rooster({ className = "", autoCrowEverySec = 75 }: Roost
         type="button"
         aria-label="CooCoo murga — dabao te uh bolega"
         onClick={() => doCrow(true)}
-        onMouseEnter={() => {
-          if (!busyRef.current && Math.random() < 0.25) doCrow(false);
-        }}
         className={`block cursor-pointer outline-none transition-transform hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-amber-400 rounded-full ${
           crowing ? "rooster-crowing" : "rooster-idle"
         }`}
