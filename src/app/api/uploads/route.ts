@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSessionFromRequest } from "@/lib/auth";
-import { CHUNK_SIZE, finalizeChunkedUpload, initChunkedUpload, storeChunk } from "@/lib/upload";
+import { CHUNK_SIZE, finalizeChunkedUpload, initChunkedUpload, saveUploadedFile, storeChunk } from "@/lib/upload";
 
 const MAX_TOTAL = 50 * 1024 * 1024; // 50MB per song — plenty for audio, safe in one function call
 const UUID_RE = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
@@ -30,6 +30,19 @@ export async function POST(req: NextRequest) {
   const action = req.nextUrl.searchParams.get("action");
 
   try {
+    // ── step 0: small media upload (photos for live player etc., under 6MB limit) ──
+    if (action === "single") {
+      const form = await req.formData();
+      const f = form.get("file") as File | null;
+      if (!f || !f.size) return bad("File nahi mili");
+      if (!/\.(png|jpe?g|gif|webp|avif|svg)$/i.test(f.name || "")) {
+        return bad("Sirf photo (jpg/png/webp/gif) chaldi hai");
+      }
+      if (f.size > 4 * 1024 * 1024) return bad("Photo 4MB ton choti honi chahidi");
+      const url = await saveUploadedFile(f, "media");
+      return NextResponse.json({ url });
+    }
+
     // ── step 1: start a new upload ──
     if (action === "init") {
       const body = (await req.json()) as { filename?: string; size?: number };
