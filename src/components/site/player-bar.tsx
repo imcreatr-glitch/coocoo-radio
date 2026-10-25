@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Equalizer } from "@/components/site/hero";
 import { usePlayer } from "@/lib/store";
+import { getToken } from "@/lib/client-auth";
 
 function fmt(sec: number): string {
   if (!isFinite(sec) || sec < 0) return "0:00";
@@ -29,6 +30,8 @@ export default function PlayerBar() {
 
   const [muted, setMuted] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  // radio-style: visitors only get play/pause + volume; skip buttons are admin-only
+  const [isAdmin, setIsAdmin] = useState(false);
   const isStream = settings.liveMode === "stream" && !!settings.liveUrl;
   const current = tracks.length > 0 ? tracks[index % tracks.length] : null;
 
@@ -36,6 +39,10 @@ export default function PlayerBar() {
   useEffect(() => {
     initAudio();
   }, [initAudio]);
+
+  useEffect(() => {
+    setIsAdmin(!!getToken());
+  }, []);
 
   // subscribe to audio time updates (resets automatically on new track)
   useEffect(() => {
@@ -72,7 +79,7 @@ export default function PlayerBar() {
           {playing ? <Pause className="h-5 w-5" /> : <Play className="ml-0.5 h-5 w-5" />}
         </button>
 
-        {!isStream && tracks.length > 1 && (
+        {isAdmin && !isStream && tracks.length > 1 && (
           <div className="hidden shrink-0 items-center gap-1 sm:flex">
             <button
               type="button"
