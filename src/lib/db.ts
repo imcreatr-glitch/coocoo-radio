@@ -1,9 +1,16 @@
 import fs from "fs";
 import path from "path";
 import { PrismaClient } from "@prisma/client";
+import { PrismaLibSQL } from "@prisma/adapter-libsql";
 import { BUNDLED_DB_B64 } from "./db-bundle";
 
 const SEED_MIN_BYTES = 4096 // real seeded db is ~72KB; 0-byte files are invalid
+
+// ─── Turso (permanent cloud DB) ──────────────────────────────────────────────
+// When TURSO_DATABASE_URL is present (Netlify env vars), ALL data lives in the
+// cloud database — songs, news, uploads metadata survive restarts forever.
+const TURSO_URL = process.env.TURSO_DATABASE_URL?.trim() || ""
+const TURSO_TOKEN = process.env.TURSO_AUTH_TOKEN?.trim() || ""
 
 function isServerlessRuntime(): boolean {
   return !!(
@@ -39,31 +46,4 @@ function materializeServerlessDb(): string {
         fs.copyFileSync(candidate, target)
         console.log("[coocoo:db] materialized from traced file:", candidate)
         return target
-      } catch (err) {
-        console.error("[coocoo:db] copy failed:", candidate, err)
-      }
-    }
-  }
-  try {
-    fs.writeFileSync(target, Buffer.from(BUNDLED_DB_B64, "base64"))
-    console.log("[coocoo:db] materialized from bundled snapshot")
-  } catch (err) {
-    console.error("[coocoo:db] FATAL: could not materialize database:", err)
-  }
-  return target
-}
-
-if (!process.env.DATABASE_URL || isServerlessRuntime()) {
-  if (isServerlessRuntime()) {
-    process.env.DATABASE_URL = `file:${materializeServerlessDb()}`
-  } else if (!process.env.DATABASE_URL) {
-    process.env.DATABASE_URL = `file:${path.join(process.cwd(), "db", "custom.db")}`
-  }
-}
-
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
-}
-
-export const db = globalForPrisma.prisma ?? new PrismaClient()
-globalForPrisma.prisma = db
+      } catch (
