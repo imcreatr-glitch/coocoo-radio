@@ -95,8 +95,12 @@ export async function finalizeChunkedUpload(
  * Delete an uploaded file referenced by a DB row URL.
  * Handles both the new /api/media/<name> scheme and the legacy /uploads/<name>
  * scheme (old rows). External cloud URLs are ignored.
- * Blob delete is verified with a strong-consistency read; errors are logged
- * (visible in Netlify Logs -> Functions) instead of being swallowed.
+ *
+ * SAFETY: no strong-consistency verification read after delete — strong reads
+ * of just-deleted keys hang on Blobs, which got the whole function killed by
+ * the gateway (502/504 at ~30s). A plain delete is best-effort; a briefly
+ * lingering blob is harmless (the DB row drives the UI). The whole operation
+ * is also capped at 8s so delete APIs ALWAYS answer in time.
  */
 export async function removeUploadedFile(url: string): Promise<void> {
   if (!url) return;
@@ -107,30 +111,23 @@ export async function removeUploadedFile(url: string): Promise<void> {
   name = path.basename(name);
   if (!name || name.startsWith(".")) return;
 
-  if (IS_SERVERLESS) {
-    try {
-      const store = getStore(BLOBS_STORE);
-      await store.delete(name);
-
-      // Blobs is eventually consistent by default (up to 60s). Verify with a
-      // strong read and retry once so the file is really gone.
-      const strong = getStore({ name: BLOBS_STORE, consistency: "strong" });
-      const left = await strong.get(name);
-      if (left) {
-        console.error("[coocoo:upload] blob survived delete, retrying:", name);
-        await strong.delete(name);
-        const again = await strong.get(name);
-        console.error("[coocoo:upload] retry:", again ? "STILL PRESENT" : "deleted ok");
+  const target = name;
+  const work = (async () => {
+    if (IS_SERVERLESS) {
+      try {
+        await getStore(BLOBS_STORE).delete(target);
+      } catch (err) {
+        console.error("[coocoo:upload] blob delete failed:", target, err);
       }
-    } catch (err) {
-      console.error("[coocoo:upload] blob delete failed:", name, err);
+      return;
     }
-    return;
-  }
+    try {
+      await fs.unlink(path.join(UPLOAD_DIR, target));
+    } catch {
+      // file may already be gone (or a legacy static asset)
+    }
+  })();
 
-  try {
-    await fs.unlink(path.join(UPLOAD_DIR, name));
-  } catch {
-    // file may already be gone (or a legacy static asset)
-  }
+  const budget = new Promise<void>((resolve) => setTimeout(resolve, 8000));
+  await Promise.race([work, budget]);
 }
