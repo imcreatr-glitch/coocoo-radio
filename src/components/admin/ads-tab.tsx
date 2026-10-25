@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import type { AdItem } from "@/lib/types";
+import { ytId, ytThumb } from "@/lib/types";
 import { adminFetch } from "@/lib/client-auth";
 import { DangerButton, EmptyRow, FieldLabel, FilePick } from "@/components/admin/shared";
 
@@ -135,7 +136,10 @@ export default function AdsTab() {
             </div>
             <div className="space-y-1.5">
               <FieldLabel>Ja media URL (optional)</FieldLabel>
-              <Input value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} placeholder="https://.../ad.mp4" inputMode="url" />
+              <Input value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} placeholder={type === "video" ? "https://.../ad.mp4 ja YouTube link" : "https://.../banner.jpg"} inputMode="url" />
+              {type === "video" && (
+                <p className="text-xs text-amber-100/50">💡 Video layi <b className="text-amber-300">YouTube da link vi chalega</b> — jiven youtube.com/watch?v=...</p>
+              )}
             </div>
           </div>
           <div className="space-y-1.5">
@@ -164,8 +168,9 @@ export default function AdsTab() {
           <div className="nice-scroll max-h-96 space-y-2 overflow-y-auto pr-1" data-testid="ads-admin-list">
             {ads.map((ad) => (
               <div key={ad.id} className="flex items-center gap-3 rounded-xl border border-amber-400/10 bg-black/25 px-3 py-2.5">
-                {ad.type === "image" ? (
-                   
+                {ad.type === "video" && ytId(ad.mediaUrl) ? (
+                  <img src={ytThumb(ad.mediaUrl) || ""} alt="" className="h-10 w-16 shrink-0 rounded-lg object-cover" />
+                ) : ad.type === "image" ? (
                   <img src={ad.mediaUrl} alt="" className="h-10 w-16 shrink-0 rounded-lg object-cover" />
                 ) : (
                   <video src={ad.mediaUrl} muted preload="metadata" className="h-10 w-16 shrink-0 rounded-lg object-cover" />
