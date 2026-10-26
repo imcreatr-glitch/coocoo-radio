@@ -28,6 +28,7 @@ export default function NewsTab() {
   const [content, setContent] = useState("");
   const [language, setLanguage] = useState("punjabi");
   const [image, setImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const imgRef = useRef<HTMLInputElement>(null);
 
@@ -70,6 +71,8 @@ export default function NewsTab() {
       setTitle("");
       setContent("");
       setImage(null);
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      setImagePreview("");
       setImageUrl("");
       if (imgRef.current) imgRef.current.value = "";
       load();
@@ -131,7 +134,23 @@ export default function NewsTab() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <FieldLabel>Image (optional — PC ton)</FieldLabel>
-              <FilePick accept="image/*" fileName={image?.name} onChange={setImage} />
+              <FilePick
+                accept="image/*"
+                fileName={image?.name}
+                onChange={(f) => {
+                  setImage(f);
+                  if (imagePreview) URL.revokeObjectURL(imagePreview);
+                  setImagePreview(f ? URL.createObjectURL(f) : "");
+                }}
+              />
+              {imagePreview && (
+                <img
+                  src={imagePreview}
+                  alt="News preview"
+                  className="mt-2 h-24 w-full rounded-lg border border-amber-400/30 object-cover"
+                  data-testid="news-image-preview"
+                />
+              )}
             </div>
             <div className="space-y-1.5">
               <FieldLabel>Ja Image URL (optional)</FieldLabel>
