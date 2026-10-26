@@ -71,33 +71,45 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
             shows with YouTube videos — te saver saver murge da swagat!
           </p>
 
-          {/* Live player card — vertical photo (jive video player) when stream mode + photo set */}
-          {settings.liveMode === "stream" && settings.liveImage && (
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              onClick={toggle}
-              data-testid="live-player-card"
-              aria-label={playing ? "Live stream pause karo" : "Live stream chalao"}
-              className="relative mt-6 h-80 w-full max-w-xs cursor-pointer overflow-hidden rounded-2xl border border-amber-400/30 shadow-[0_16px_50px_rgba(0,0,0,0.5)]"
-            >
-              <img src={settings.liveImage} alt={settings.liveTitle || "Live"} className="h-full w-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/20" />
-              {!playing && (
-                <span className="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-black/55 text-amber-200 backdrop-blur-sm">
-                  <Play className="ml-1 h-7 w-7" />
+          {/* Live player card — vertical photo (jive video player) when stream mode + photo set.
+              Eh card vi play/pause button hai — singer photo warga: state icon + color ring. */}
+          {settings.liveMode === "stream" && settings.liveImage && (() => {
+            const liveStateColor = playing ? pStyle.playColor : pStyle.pauseColor;
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                onClick={toggle}
+                data-testid="live-player-card"
+                aria-label={playing ? "Live stream pause karo" : "Live stream chalao"}
+                title={playing ? "Click = Pause" : "Click = Chalao"}
+                className="relative mt-6 h-80 w-full max-w-xs cursor-pointer overflow-hidden rounded-2xl shadow-[0_16px_50px_rgba(0,0,0,0.5)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                style={
+                  liveStateColor
+                    ? { border: `4px solid ${liveStateColor}`, boxShadow: `0 0 22px ${liveStateColor}80` }
+                    : { border: "1px solid rgba(251,191,36,0.3)" }
+                }
+              >
+                <img src={settings.liveImage} alt={settings.liveTitle || "Live"} className="h-full w-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/20" />
+                <span
+                  className={`absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full text-white backdrop-blur-[2px] ${
+                    playing ? "bg-black/40" : "bg-black/60"
+                  }`}
+                >
+                  {playing ? <Pause className="h-7 w-7" /> : <Play className="ml-1 h-7 w-7" />}
                 </span>
-              )}
-              <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 p-3">
-                <Badge className="live-dot gap-1 border-0 bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white">
-                  LIVE
-                </Badge>
-                <span className="truncate text-sm font-bold text-white">{settings.liveTitle || "Darbar Sahib Live"}</span>
-                <Equalizer playing={playing} bars={4} className="ml-auto h-4" />
-              </div>
-            </motion.div>
-          )}
+                <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 p-3">
+                  <Badge className="live-dot gap-1 border-0 bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                    LIVE
+                  </Badge>
+                  <span className="truncate text-sm font-bold text-white">{settings.liveTitle || "Darbar Sahib Live"}</span>
+                  <Equalizer playing={playing} bars={4} className="ml-auto h-4" />
+                </div>
+              </motion.div>
+            );
+          })()}
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
             {(() => {
