@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { usePlayer } from "@/lib/store";
 import { adminFetch } from "@/lib/client-auth";
+import { fileToDataUrl } from "@/lib/image-client";
 import type { StationSettings } from "@/lib/types";
 import { parsePlayerStyle, parseStreamLibrary, type PlayerStyle, type StreamEntry } from "@/lib/types";
 import { FieldLabel, FilePick } from "@/components/admin/shared";
@@ -142,18 +143,15 @@ export default function SettingsTab() {
     }
   };
 
-  // ── live photo upload ──
+  // ── live photo upload — browser ch resize hoke data URL bandi (server storage di lor nahi,
+  //    Vercel/Netlify dono te 100% chalda — pehlan Blob token di kami karke fail hunda c) ──
   const uploadLiveImg = async (f: File) => {
     setImgFile(f);
     setImgUploading(true);
     try {
-      const fd = new FormData();
-      fd.append("file", f);
-      const res = await adminFetch("/api/uploads?action=single", { method: "POST", body: fd });
-      const j = (await res.json()) as { url?: string; error?: string };
-      if (!res.ok || !j.url) throw new Error(j.error || "Upload fail");
-      setSettings((s) => ({ ...s, liveImage: j.url as string }));
-      toast({ title: "🖼️ Photo upload ho gayi!", description: "Hun 'Save karo' zaroor dabao" });
+      const dataUrl = await fileToDataUrl(f, 1024, 0.82);
+      setSettings((s) => ({ ...s, liveImage: dataUrl }));
+      toast({ title: "🖼️ Photo jud gayi!", description: "Hun 'Save karo' zaroor dabao" });
     } catch (e) {
       toast({ title: "Photo upload nahi hoi", description: e instanceof Error ? e.message : "", variant: "destructive" });
     } finally {
@@ -171,16 +169,14 @@ export default function SettingsTab() {
     }
   })();
 
+  // ── singer photo — browser ch resize hoke data URL (server upload di lor nahi —
+  //    eh Vercel te vi 100% chaluga, Blob token di kami vi nahi) ──
   const uploadSingerImg = async (f: File) => {
     setSingerUploading(true);
     try {
-      const fd = new FormData();
-      fd.append("file", f);
-      const res = await adminFetch("/api/uploads?action=single", { method: "POST", body: fd });
-      const j = (await res.json()) as { url?: string; error?: string };
-      if (!res.ok || !j.url) throw new Error(j.error || "Upload fail");
-      setSingerUrl(j.url);
-      toast({ title: "🖼️ Photo upload ho gayi!", description: "Hun singer da naam likh ke 'Add karo' dabao" });
+      const dataUrl = await fileToDataUrl(f, 512, 0.85);
+      setSingerUrl(dataUrl);
+      toast({ title: "🖼️ Photo jud gayi!", description: "Hun singer da naam likh ke 'Add karo' dabao" });
     } catch (e) {
       toast({ title: "Photo upload nahi hoi", description: e instanceof Error ? e.message : "", variant: "destructive" });
     } finally {
