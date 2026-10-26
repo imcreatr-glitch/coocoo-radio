@@ -166,11 +166,21 @@ export default function PlayerBar() {
           ) : current ? (
             <div className="mt-0.5 flex items-center gap-2" data-testid="player-track">
               {artistImg && (
-                <img
-                  src={artistImg}
-                  alt={current.artist || "Singer"}
-                  className="h-9 w-9 shrink-0 rounded-full border border-amber-400/40 object-cover"
-                />
+                <button
+                  type="button"
+                  onClick={toggle}
+                  aria-label={playing ? "Pause karo" : "Chalao"}
+                  title={playing ? "Pause (hari ring = chal raha)" : "Chalao (laal ring = rukya)"}
+                  className={`shrink-0 rounded-full outline-none ring-2 transition-all duration-300 active:scale-95 ${
+                    playing ? "ring-green-400" : "ring-red-500"
+                  }`}
+                >
+                  <img
+                    src={artistImg}
+                    alt={current.artist || "Singer"}
+                    className="h-9 w-9 rounded-full border border-black/40 object-cover"
+                  />
+                </button>
               )}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold leading-tight text-amber-50">🎵 {current.title}</p>
