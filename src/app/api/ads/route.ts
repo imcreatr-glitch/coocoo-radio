@@ -39,7 +39,8 @@ export async function POST(req: NextRequest) {
       mediaUrl = await saveUploadedFile(media, "ad");
     } else {
       mediaUrl = ((form.get("mediaUrl") as string) || "").trim();
-      if (!/^https?:\/\/|^\//.test(mediaUrl)) {
+      // data:image/ = browser-resized photo (client-side upload, Vercel-safe)
+      if (!/^(https?:\/\/|\/|data:image\/)/.test(mediaUrl)) {
         return NextResponse.json({ error: "Media file upload karo ja link do" }, { status: 400 });
       }
     }
