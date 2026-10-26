@@ -23,6 +23,7 @@ export default function AdsTab() {
   const [title, setTitle] = useState("");
   const [type, setType] = useState("image");
   const [media, setMedia] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
   const [link, setLink] = useState("");
   const mediaRef = useRef<HTMLInputElement>(null);
@@ -42,6 +43,13 @@ export default function AdsTab() {
   useEffect(() => {
     load();
   }, []);
+
+  /** file chuno — image type te turant preview thumbnail vekhdae (user nu pata lage photo jud gayi) */
+  const pickMedia = (f: File | null) => {
+    setMedia(f);
+    if (mediaPreview) URL.revokeObjectURL(mediaPreview);
+    setMediaPreview(f && type === "image" ? URL.createObjectURL(f) : "");
+  };
 
   const submit = async () => {
     if (!title.trim()) {
@@ -70,6 +78,8 @@ export default function AdsTab() {
       toast({ title: "📢 Ad add ho gaya!", description: title });
       setTitle("");
       setMedia(null);
+      if (mediaPreview) URL.revokeObjectURL(mediaPreview);
+      setMediaPreview("");
       setMediaUrl("");
       setLink("");
       if (mediaRef.current) mediaRef.current.value = "";
@@ -134,8 +144,16 @@ export default function AdsTab() {
               <FilePick
                 accept={type === "video" ? "video/*,.mp4,.webm,.ogv,.mov" : "image/*"}
                 fileName={media?.name}
-                onChange={setMedia}
+                onChange={pickMedia}
               />
+              {mediaPreview && type === "image" && (
+                <img
+                  src={mediaPreview}
+                  alt="Ad preview"
+                  className="mt-2 h-24 w-full rounded-lg border border-amber-400/30 object-cover"
+                  data-testid="ad-image-preview"
+                />
+              )}
             </div>
             <div className="space-y-1.5">
               <FieldLabel>Ja media URL (optional)</FieldLabel>
