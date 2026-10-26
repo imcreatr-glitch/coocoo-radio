@@ -57,6 +57,7 @@ export interface StationSettings {
   liveTitle?: string; // label shown while stream plays (e.g. "Darbar Sahib Live")
   liveImage?: string; // vertical photo shown in the hero live player card
   streamLibrary?: string; // JSON array of StreamEntry — admin's saved live streams
+  artistImages?: string; // JSON map singerName -> stamp-size photo URL (shown with now-playing)
 }
 
 export const DEFAULT_SETTINGS: StationSettings = {
@@ -68,12 +69,30 @@ export const DEFAULT_SETTINGS: StationSettings = {
   liveTitle: "",
   liveImage: "",
   streamLibrary: "",
+  artistImages: "",
 };
 
 /** One saved live stream in the admin's library */
 export interface StreamEntry {
   name: string;
   url: string;
+}
+
+/** Find the stamp-size photo for a singer (case-insensitive name match, never throws) */
+export function artistImageFor(raw: string | undefined | null, artist?: string | null): string | null {
+  if (!raw || !artist || !artist.trim()) return null;
+  try {
+    const v = JSON.parse(raw) as Record<string, unknown>;
+    if (!v || typeof v !== "object") return null;
+    const want = artist.trim().toLowerCase();
+    const key = Object.keys(v).find((k) => k.trim().toLowerCase() === want);
+    if (key && typeof v[key] === "string" && (v[key] as string).trim()) {
+      return (v[key] as string).trim();
+    }
+  } catch {
+    /* ignore bad JSON */
+  }
+  return null;
 }
 
 /** Safe-parse the streamLibrary setting (never throws, always returns array) */
