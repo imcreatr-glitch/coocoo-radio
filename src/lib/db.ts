@@ -14,6 +14,7 @@ const TURSO_TOKEN = process.env.TURSO_AUTH_TOKEN?.trim() || ""
 
 function isServerlessRuntime(): boolean {
   return !!(
+    process.env.VERCEL ||
     process.env.NETLIFY ||
     process.env.NETLIFY_DEV ||
     process.env.AWS_LAMBDA_FUNCTION_NAME ||
