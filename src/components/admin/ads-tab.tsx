@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { AdItem } from "@/lib/types";
 import { ytId, ytThumb } from "@/lib/types";
 import { adminFetch } from "@/lib/client-auth";
+import { fileToDataUrl } from "@/lib/image-client";
 import { DangerButton, EmptyRow, FieldLabel, FilePick } from "@/components/admin/shared";
 
 export default function AdsTab() {
@@ -56,7 +57,9 @@ export default function AdsTab() {
       const fd = new FormData();
       fd.append("title", title.trim());
       fd.append("type", type);
-      if (media) fd.append("media", media);
+      // image ad: photo browser ch resize hoke data URL (Vercel-safe); video ad: server path
+      if (media && type === "image") fd.append("mediaUrl", await fileToDataUrl(media, 1024, 0.82));
+      else if (media) fd.append("media", media);
       else fd.append("mediaUrl", mediaUrl.trim());
       if (link.trim()) fd.append("link", link.trim());
       const res = await adminFetch("/api/ads", { method: "POST", body: fd });
