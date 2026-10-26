@@ -36,8 +36,10 @@ export default function PlayerBar() {
   const [isAdmin, setIsAdmin] = useState(false);
   const isStream = settings.liveMode === "stream" && !!settings.liveUrl;
   const current = tracks.length > 0 ? tracks[index % tracks.length] : null;
-  const artistImg = !isStream && current ? artistImageFor(settings.artistImages, current.artist) : null;
   const pStyle = parsePlayerStyle(settings.playerStyle);
+  // singer photo sirf image mode + photo hove te — eh SAME toggle button ch dikhegi (vakhri button nahi)
+  const artistImg =
+    !isStream && current && pStyle.showImage ? artistImageFor(settings.artistImages, current.artist) : null;
   const barRingColor = playing ? pStyle.playColor : pStyle.pauseColor;
   const canGurbani = !!settings.liveUrl || parseStreamLibrary(settings.streamLibrary).length > 0;
 
@@ -95,19 +97,48 @@ export default function PlayerBar() {
       data-testid="player-bar"
     >
       <div className="mx-auto flex h-[76px] max-w-7xl items-center gap-3 px-3 sm:gap-4 sm:px-6">
-        {/* Play controls */}
+        {/* Play controls — EK hi button: singer photo hove ta oh (icon overlay naal), nahi ta orange circle */}
         <button
           type="button"
           onClick={toggle}
           data-testid="player-toggle"
           aria-label={playing ? "Pause radio" : "Play radio"}
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-black transition-transform hover:scale-105 active:scale-95 ${
-            playing
-              ? "bg-gradient-to-br from-amber-400 to-orange-600 shadow-[0_0_18px_rgba(245,158,11,0.5)]"
-              : "bg-gradient-to-br from-amber-300 to-orange-500"
-          }`}
+          title={playing ? "Click = Pause" : "Click = Chalao"}
+          className="relative h-12 w-12 shrink-0 rounded-full outline-none transition-all duration-300 hover:scale-105 active:scale-95"
+          style={
+            artistImg
+              ? barRingColor
+                ? { border: `2px solid ${barRingColor}`, boxShadow: `0 0 10px ${barRingColor}80` }
+                : { border: "1px solid rgba(251,191,36,0.4)" }
+              : undefined
+          }
         >
-          {playing ? <Pause className="h-5 w-5" /> : <Play className="ml-0.5 h-5 w-5" />}
+          {artistImg ? (
+            <>
+              <img
+                src={artistImg}
+                alt={current?.artist || "Singer"}
+                className="h-12 w-12 rounded-full border border-black/40 object-cover"
+              />
+              <span
+                className={`absolute inset-0 m-auto flex h-6 w-6 items-center justify-center rounded-full text-white backdrop-blur-[2px] ${
+                  playing ? "bg-black/30" : "bg-black/55"
+                }`}
+              >
+                {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="ml-px h-3.5 w-3.5" />}
+              </span>
+            </>
+          ) : (
+            <span
+              className={`flex h-12 w-12 items-center justify-center rounded-full text-black ${
+                playing
+                  ? "bg-gradient-to-br from-amber-400 to-orange-600 shadow-[0_0_18px_rgba(245,158,11,0.5)]"
+                  : "bg-gradient-to-br from-amber-300 to-orange-500"
+              }`}
+            >
+              {playing ? <Pause className="h-5 w-5" /> : <Play className="ml-0.5 h-5 w-5" />}
+            </span>
+          )}
         </button>
 
         {isAdmin && !isStream && tracks.length > 1 && (
@@ -166,27 +197,7 @@ export default function PlayerBar() {
               🔴 {settings.liveTitle || "Darbar Sahib Live"}
             </p>
           ) : current ? (
-            <div className="mt-0.5 flex items-center gap-2" data-testid="player-track">
-              {pStyle.showImage && artistImg && (
-                <button
-                  type="button"
-                  onClick={toggle}
-                  aria-label={playing ? "Pause karo" : "Chalao"}
-                  title={playing ? "Click = Pause" : "Click = Chalao"}
-                  className="shrink-0 rounded-full outline-none transition-all duration-300 active:scale-95"
-                  style={
-                    barRingColor
-                      ? { border: `2px solid ${barRingColor}`, boxShadow: `0 0 10px ${barRingColor}80` }
-                      : { border: "1px solid rgba(251,191,36,0.4)" }
-                  }
-                >
-                  <img
-                    src={artistImg}
-                    alt={current.artist || "Singer"}
-                    className="h-9 w-9 rounded-full object-cover"
-                  />
-                </button>
-              )}
+            <div className="mt-0.5" data-testid="player-track">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold leading-tight text-amber-50">🎵 {current.title}</p>
                 {current.artist && (
