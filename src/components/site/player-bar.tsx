@@ -37,9 +37,15 @@ export default function PlayerBar() {
   const isStream = settings.liveMode === "stream" && !!settings.liveUrl;
   const current = tracks.length > 0 ? tracks[index % tracks.length] : null;
   const pStyle = parsePlayerStyle(settings.playerStyle);
-  // singer photo sirf image mode + photo hove te — eh SAME toggle button ch dikhegi (vakhri button nahi)
-  const artistImg =
-    !isStream && current && pStyle.showImage ? artistImageFor(settings.artistImages, current.artist) : null;
+  // Button ch photo: songs mode = singer photo, stream mode = Darbar Sahib live photo —
+  // dono SAME toggle button ch (vakhri button nahi). Circle mode ch (showImage off) koi photo nahi.
+  const artistImg = pStyle.showImage
+    ? !isStream && current
+      ? artistImageFor(settings.artistImages, current.artist)
+      : settings.liveMode === "stream"
+        ? settings.liveImage || null
+        : null
+    : null;
   const barRingColor = playing ? pStyle.playColor : pStyle.pauseColor;
   const canGurbani = !!settings.liveUrl || parseStreamLibrary(settings.streamLibrary).length > 0;
 
@@ -117,7 +123,7 @@ export default function PlayerBar() {
             <>
               <img
                 src={artistImg}
-                alt={current?.artist || "Singer"}
+                alt={isStream ? settings.liveTitle || "Live" : current?.artist || "Singer"}
                 className="h-12 w-12 rounded-full border border-black/40 object-cover"
               />
               <span
