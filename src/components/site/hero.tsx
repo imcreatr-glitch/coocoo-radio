@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Pause, Play, Radio, Sunrise, Tv } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { usePlayer } from "@/lib/store";
 import { artistImageFor, isOnAir, parsePlayerStyle, type ShowItem } from "@/lib/types";
@@ -101,17 +100,59 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
           )}
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
-            <Button
-              size="lg"
-              onClick={toggle}
-              data-testid="hero-play"
-              className={`glow-pulse h-16 w-16 rounded-full border-0 bg-gradient-to-br from-amber-400 to-orange-600 p-0 text-black hover:from-amber-300 hover:to-orange-500 ${
-                playing ? "" : ""
-              }`}
-              aria-label={playing ? "Pause radio" : "Play radio"}
-            >
-              {playing ? <Pause className="h-7 w-7" /> : <Play className="ml-1 h-7 w-7" />}
-            </Button>
+            {(() => {
+              // EK HI BUTTON: singer photo hove ta ohdi photo (play/pause icon naal),
+              // nahi ta simple orange circle. Purana vakhra chhota button hata ditta —
+              // hun sirf ik hi button hovega, photo hove ja na hove.
+              const showLiveCard = settings.liveMode === "stream" && !!settings.liveImage;
+              if (showLiveCard) return null; // live card khud hi button hai
+              const img = settings.liveMode !== "stream" && pStyle.showImage ? artistImg : null;
+              const stateColor = playing ? pStyle.playColor : pStyle.pauseColor;
+              const ringStyle = stateColor
+                ? { border: `4px solid ${stateColor}`, boxShadow: `0 0 22px ${stateColor}80` }
+                : img
+                  ? { border: "1px solid rgba(251,191,36,0.4)" }
+                  : undefined;
+              return (
+                <button
+                  type="button"
+                  onClick={toggle}
+                  data-testid="hero-play"
+                  aria-label={playing ? "Pause radio" : "Play radio"}
+                  title={playing ? "Click = Pause" : "Click = Chalao"}
+                  className="relative shrink-0 rounded-full outline-none transition-all duration-300 hover:scale-105 active:scale-95"
+                  style={ringStyle}
+                >
+                  {img ? (
+                    <>
+                      <img
+                        src={img}
+                        alt={currentTrack?.artist || "Singer"}
+                        className="h-20 w-20 rounded-full border-2 border-black/40 object-cover sm:h-24 sm:w-24"
+                      />
+                      <span
+                        className={`absolute inset-0 m-auto flex h-9 w-9 items-center justify-center rounded-full text-white backdrop-blur-[2px] ${
+                          playing ? "bg-black/40" : "bg-black/60"
+                        }`}
+                      >
+                        {playing ? <Pause className="h-5 w-5" /> : <Play className="ml-0.5 h-5 w-5" />}
+                      </span>
+                    </>
+                  ) : (
+                    <span
+                      className={`flex h-20 w-20 items-center justify-center rounded-full sm:h-24 sm:w-24 ${
+                        stateColor
+                          ? "text-white"
+                          : "glow-pulse bg-gradient-to-br from-amber-400 to-orange-600 text-black"
+                      }`}
+                      style={stateColor ? { backgroundColor: stateColor } : undefined}
+                    >
+                      {playing ? <Pause className="h-8 w-8" /> : <Play className="ml-1 h-8 w-8" />}
+                    </span>
+                  )}
+                </button>
+              );
+            })()}
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-widest text-amber-400/80">
                 {playing ? "Now Playing" : "Tap to tune in"}
@@ -121,65 +162,11 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
                   🔴 {settings.liveTitle || "Darbar Sahib Live"}
                 </p>
               ) : currentTrack ? (
-                <div className="mt-1.5 flex items-center gap-4" data-testid="hero-track">
-                  {(() => {
-                    const ringColor = playing ? pStyle.playColor : pStyle.pauseColor;
-                    const ringStyle = ringColor
-                      ? { border: `4px solid ${ringColor}`, boxShadow: `0 0 22px ${ringColor}80` }
-                      : { border: "1px solid rgba(251,191,36,0.4)" };
-                    const toggleBtn = (children: React.ReactNode, testId: string) => (
-                      <button
-                        type="button"
-                        onClick={toggle}
-                        data-testid={testId}
-                        aria-label={playing ? "Pause karo" : "Chalao"}
-                        title={playing ? "Click = Pause" : "Click = Chalao"}
-                        className="relative shrink-0 rounded-full outline-none transition-all duration-300 hover:scale-105 active:scale-95"
-                        style={ringStyle}
-                      >
-                        {children}
-                      </button>
-                    );
-                    // Image mode: singer photo (jivein video player), circle fallback jadon photo nahi
-                    if (pStyle.showImage && artistImg) {
-                      return toggleBtn(
-                        <>
-                          <img
-                            src={artistImg}
-                            alt={currentTrack.artist || "Singer"}
-                            className="h-20 w-20 rounded-full border-2 border-black/40 object-cover sm:h-24 sm:w-24"
-                          />
-                          <span
-                            className={`absolute inset-0 m-auto flex h-9 w-9 items-center justify-center rounded-full text-white backdrop-blur-[2px] ${
-                              playing ? "bg-black/40" : "bg-black/60"
-                            }`}
-                          >
-                            {playing ? <Pause className="h-5 w-5" /> : <Play className="ml-0.5 h-5 w-5" />}
-                          </span>
-                        </>,
-                        "artist-image-toggle"
-                      );
-                    }
-                    // Simple circle mode — color admin vich chuni hoi (dono same ya alag)
-                    const stateColor = playing ? pStyle.playColor : pStyle.pauseColor;
-                    return toggleBtn(
-                      <span
-                        className={`flex h-20 w-20 items-center justify-center rounded-full sm:h-24 sm:w-24 ${
-                          stateColor ? "text-white" : "bg-gradient-to-br from-amber-400 to-orange-600 text-black"
-                        }`}
-                        style={stateColor ? { backgroundColor: stateColor } : undefined}
-                      >
-                        {playing ? <Pause className="h-8 w-8" /> : <Play className="ml-1 h-8 w-8" />}
-                      </span>,
-                      "player-circle-toggle"
-                    );
-                  })()}
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold leading-snug text-amber-50">🎵 {currentTrack.title}</p>
-                    {currentTrack.artist && (
-                      <p className="text-xs leading-snug text-amber-300">🎤 {currentTrack.artist}</p>
-                    )}
-                  </div>
+                <div className="mt-1.5" data-testid="hero-track">
+                  <p className="text-sm font-bold leading-snug text-amber-50">🎵 {currentTrack.title}</p>
+                  {currentTrack.artist && (
+                    <p className="text-xs leading-snug text-amber-300">🎤 {currentTrack.artist}</p>
+                  )}
                 </div>
               ) : (
                 <p className="mt-0.5 text-sm font-medium text-amber-50">Auto-Pilot 24x7 playlist ready</p>
