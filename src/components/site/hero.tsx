@@ -6,7 +6,7 @@ import { Pause, Play, Radio, Sunrise, Tv } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { usePlayer } from "@/lib/store";
-import { isOnAir, type ShowItem } from "@/lib/types";
+import { artistImageFor, isOnAir, type ShowItem } from "@/lib/types";
 
 export function Equalizer({ playing, bars = 7, className = "" }: { playing: boolean; bars?: number; className?: string }) {
   const heights = useMemo(() => Array.from({ length: bars }, (_, i) => 0.35 + ((i * 37) % 65) / 100), [bars]);
@@ -36,6 +36,10 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
   }, [shows]);
 
   const currentTrack = tracks.length > 0 ? tracks[index % tracks.length] : null;
+  const artistImg =
+    currentTrack && settings.liveMode !== "stream"
+      ? artistImageFor(settings.artistImages, currentTrack.artist)
+      : null;
 
   return (
     <section className="hero-bg relative overflow-hidden border-b border-amber-400/10">
@@ -107,17 +111,33 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
             >
               {playing ? <Pause className="h-7 w-7" /> : <Play className="ml-1 h-7 w-7" />}
             </Button>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-widest text-amber-400/80">
                 {playing ? "Now Playing" : "Tap to tune in"}
               </p>
-              <p className="mt-0.5 max-w-[260px] truncate text-sm font-medium text-amber-50 sm:max-w-xs" data-testid="hero-track">
-                {settings.liveMode === "stream"
-                  ? `🔴 ${settings.liveTitle || "Darbar Sahib Live"}`
-                  : currentTrack
-                    ? `🎵 ${currentTrack.title}${currentTrack.artist ? ` — ${currentTrack.artist}` : ""}`
-                    : "Auto-Pilot 24x7 playlist ready"}
-              </p>
+              {settings.liveMode === "stream" ? (
+                <p className="mt-0.5 text-sm font-medium text-amber-50" data-testid="hero-track">
+                  🔴 {settings.liveTitle || "Darbar Sahib Live"}
+                </p>
+              ) : currentTrack ? (
+                <div className="mt-1.5 flex items-center gap-3" data-testid="hero-track">
+                  {artistImg && (
+                    <img
+                      src={artistImg}
+                      alt={currentTrack.artist || "Singer"}
+                      className="h-12 w-12 shrink-0 rounded-full border border-amber-400/50 object-cover shadow-[0_4px_14px_rgba(0,0,0,0.45)]"
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold leading-snug text-amber-50">🎵 {currentTrack.title}</p>
+                    {currentTrack.artist && (
+                      <p className="text-xs leading-snug text-amber-200/80">🎤 {currentTrack.artist}</p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-0.5 text-sm font-medium text-amber-50">Auto-Pilot 24x7 playlist ready</p>
+              )}
             </div>
             <Equalizer playing={playing} bars={9} className="ml-auto hidden sm:flex" />
           </div>
