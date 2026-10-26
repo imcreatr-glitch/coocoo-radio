@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import type { NewsItem } from "@/lib/types";
 import { adminFetch } from "@/lib/client-auth";
+import { fileToDataUrl } from "@/lib/image-client";
 import { DangerButton, EmptyRow, FieldLabel, FilePick } from "@/components/admin/shared";
 
 const LANGS = [
@@ -57,7 +58,8 @@ export default function NewsTab() {
       fd.append("title", title.trim());
       fd.append("content", content.trim());
       fd.append("language", language);
-      if (image) fd.append("image", image);
+      // photo browser ch resize hoke data URL bandi — server upload di lor nahi (Vercel-safe)
+      if (image) fd.append("imageUrl", await fileToDataUrl(image, 1024, 0.82));
       else if (imageUrl.trim()) fd.append("imageUrl", imageUrl.trim());
       const res = await adminFetch("/api/news", { method: "POST", body: fd });
       if (!res.ok) {
