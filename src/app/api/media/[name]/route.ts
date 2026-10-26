@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
+import { head as blobHead } from "@vercel/blob";
 import { getStore } from "@netlify/blobs";
 import { IS_SERVERLESS, UPLOAD_DIR } from "@/lib/storage";
 
 const BLOBS_STORE = "coocoo-uploads";
+const IS_VERCEL = !!process.env.VERCEL;
 
 const MIME: Record<string, string> = {
   ".mp3": "audio/mpeg",
@@ -69,6 +71,21 @@ export async function GET(
   if (!type) return new NextResponse("Unsupported media type", { status: 400 });
 
   const rangeHeader = req.headers.get("range");
+
+  // ── Vercel Blob path (serverless) ──
+  // Chunked uploads finalize to /api/media/<name> — resolve the name to its
+  // permanent Vercel Blob URL and 302 there. The blob CDN handles Range
+  // (audio seeking) and caching natively, so no function time is burned.
+  if (IS_SERVERLESS && IS_VERCEL) {
+    try {
+      const meta = await blobHead(clean).catch(() => null);
+      if (!meta?.url) return notFound();
+      return NextResponse.redirect(meta.url, { status: 302 });
+    } catch (err) {
+      console.error("[coocoo:media] vercel blob lookup failed:", clean, err);
+      return notFound();
+    }
+  }
 
   // ── Netlify Blobs path (serverless) ──
   if (IS_SERVERLESS) {
