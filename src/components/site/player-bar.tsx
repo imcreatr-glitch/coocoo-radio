@@ -7,7 +7,7 @@ import { Slider } from "@/components/ui/slider";
 import { Equalizer } from "@/components/site/hero";
 import { usePlayer } from "@/lib/store";
 import { adminFetch, getToken } from "@/lib/client-auth";
-import { parseStreamLibrary } from "@/lib/types";
+import { artistImageFor, parseStreamLibrary } from "@/lib/types";
 
 function fmt(sec: number): string {
   if (!isFinite(sec) || sec < 0) return "0:00";
@@ -36,6 +36,7 @@ export default function PlayerBar() {
   const [isAdmin, setIsAdmin] = useState(false);
   const isStream = settings.liveMode === "stream" && !!settings.liveUrl;
   const current = tracks.length > 0 ? tracks[index % tracks.length] : null;
+  const artistImg = !isStream && current ? artistImageFor(settings.artistImages, current.artist) : null;
   const canGurbani = !!settings.liveUrl || parseStreamLibrary(settings.streamLibrary).length > 0;
 
   /** admin one-click: Gurbani ON (stream) / OFF (songs auto-pilot) */
@@ -158,15 +159,33 @@ export default function PlayerBar() {
             )}
             <Equalizer playing={playing} bars={4} className="hidden h-5 sm:flex" />
           </div>
-          <p className="mt-0.5 truncate text-sm font-semibold text-amber-50" data-testid="player-track">
-            {isStream
-              ? `🔴 ${settings.liveTitle || "Darbar Sahib Live"}`
-              : current
-                ? `🎵 ${current.title}${current.artist ? ` — ${current.artist}` : ""}`
-                : bootstrapped
-                  ? "Playlist khali hai — Admin ton songs add karo"
-                  : "Radio load ho rahi hai..."}
-          </p>
+          {isStream ? (
+            <p className="mt-0.5 truncate text-sm font-semibold text-amber-50" data-testid="player-track">
+              🔴 {settings.liveTitle || "Darbar Sahib Live"}
+            </p>
+          ) : current ? (
+            <div className="mt-0.5 flex items-center gap-2" data-testid="player-track">
+              {artistImg && (
+                <img
+                  src={artistImg}
+                  alt={current.artist || "Singer"}
+                  className="h-9 w-9 shrink-0 rounded-full border border-amber-400/40 object-cover"
+                />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold leading-tight text-amber-50">🎵 {current.title}</p>
+                {current.artist && (
+                  <p className="truncate text-xs leading-tight text-amber-200/75">🎤 {current.artist}</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <p className="mt-0.5 truncate text-sm font-semibold text-amber-50" data-testid="player-track">
+              {bootstrapped
+                ? "Playlist khali hai — Admin ton songs add karo"
+                : "Radio load ho rahi hai..."}
+            </p>
+          )}
         </div>
 
         {/* elapsed */}
