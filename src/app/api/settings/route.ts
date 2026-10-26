@@ -11,6 +11,7 @@ const KEYS = [
   "liveTitle",
   "liveImage",
   "streamLibrary",
+  "artistImages",
 ] as const;
 
 export async function GET() {
@@ -26,6 +27,7 @@ export async function GET() {
     liveTitle: map.liveTitle || "Darbar Sahib Live",
     liveImage: map.liveImage || "",
     streamLibrary: map.streamLibrary || "",
+    artistImages: map.artistImages || "",
   });
 }
 
