@@ -120,18 +120,38 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
                   🔴 {settings.liveTitle || "Darbar Sahib Live"}
                 </p>
               ) : currentTrack ? (
-                <div className="mt-1.5 flex items-center gap-3" data-testid="hero-track">
+                <div className="mt-1.5 flex items-center gap-4" data-testid="hero-track">
                   {artistImg && (
-                    <img
-                      src={artistImg}
-                      alt={currentTrack.artist || "Singer"}
-                      className="h-12 w-12 shrink-0 rounded-full border border-amber-400/50 object-cover shadow-[0_4px_14px_rgba(0,0,0,0.45)]"
-                    />
+                    <button
+                      type="button"
+                      onClick={toggle}
+                      data-testid="artist-image-toggle"
+                      aria-label={playing ? "Pause karo" : "Chalao"}
+                      title={playing ? "Image te click = Pause (hari ring)" : "Image te click = Chalao (laal ring)"}
+                      className={`relative shrink-0 rounded-full outline-none ring-4 transition-all duration-300 hover:scale-105 active:scale-95 ${
+                        playing
+                          ? "ring-green-400 shadow-[0_0_22px_rgba(74,222,128,0.5)]"
+                          : "ring-red-500 shadow-[0_0_22px_rgba(239,68,68,0.5)]"
+                      }`}
+                    >
+                      <img
+                        src={artistImg}
+                        alt={currentTrack.artist || "Singer"}
+                        className="h-20 w-20 rounded-full border-2 border-black/50 object-cover sm:h-24 sm:w-24"
+                      />
+                      <span
+                        className={`absolute inset-0 m-auto flex h-9 w-9 items-center justify-center rounded-full text-white backdrop-blur-[2px] ${
+                          playing ? "bg-black/40" : "bg-black/60"
+                        }`}
+                      >
+                        {playing ? <Pause className="h-5 w-5" /> : <Play className="ml-0.5 h-5 w-5" />}
+                      </span>
+                    </button>
                   )}
                   <div className="min-w-0">
                     <p className="text-sm font-bold leading-snug text-amber-50">🎵 {currentTrack.title}</p>
                     {currentTrack.artist && (
-                      <p className="text-xs leading-snug text-amber-200/80">🎤 {currentTrack.artist}</p>
+                      <p className="text-xs leading-snug text-amber-300">🎤 {currentTrack.artist}</p>
                     )}
                   </div>
                 </div>
