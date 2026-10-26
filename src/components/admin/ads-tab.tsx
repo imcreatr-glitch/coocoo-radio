@@ -146,6 +146,15 @@ export default function AdsTab() {
                 fileName={media?.name}
                 onChange={pickMedia}
               />
+              {type === "image" ? (
+                <p className="text-xs text-amber-100/50" data-testid="ad-size-hint">
+                  📏 <b className="text-amber-300">Best size: 1200 × 450 px</b> (chaurhi lambi banner photo, 8:3 shape) — hor size vi chalega, upload auto-resize ho jauga
+                </p>
+              ) : (
+                <p className="text-xs text-amber-100/50" data-testid="ad-size-hint">
+                  🎬 Best video size: <b className="text-amber-300">1280 × 720 px</b> (16:9)
+                </p>
+              )}
               {mediaPreview && type === "image" && (
                 <img
                   src={mediaPreview}
