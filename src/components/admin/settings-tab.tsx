@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ImagePlus, KeyRound, Loader2, Plus, Radio, Save, Square, Trash2, Wifi } from "lucide-react";
+import { ImagePlus, KeyRound, Loader2, Palette, Plus, Radio, Save, Square, Trash2, Wifi, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { usePlayer } from "@/lib/store";
 import { adminFetch } from "@/lib/client-auth";
 import type { StationSettings } from "@/lib/types";
-import { parseStreamLibrary, type StreamEntry } from "@/lib/types";
+import { parsePlayerStyle, parseStreamLibrary, type PlayerStyle, type StreamEntry } from "@/lib/types";
 import { FieldLabel, FilePick } from "@/components/admin/shared";
 
 /** Built-in preset — hamesha library ch dikhega (jadon tak khud add nahi kitta) */
@@ -209,6 +210,17 @@ export default function SettingsTab() {
       await putSettings({ artistImages: JSON.stringify(next) }, "Singer di photo kad ditte");
     } catch {
       toast({ title: "Delete nahi hoya", variant: "destructive" });
+    }
+  };
+
+  // ── play/pause button style (image/circle + colors) ──
+  const pStyle: PlayerStyle = parsePlayerStyle(settings.playerStyle);
+  const savePlayerStyle = async (patch: Partial<PlayerStyle>) => {
+    const next = { ...pStyle, ...patch };
+    try {
+      await putSettings({ playerStyle: JSON.stringify(next) }, "🎨 Button di setting save ho gayi!");
+    } catch {
+      toast({ title: "Save nahi hoya", variant: "destructive" });
     }
   };
 
@@ -507,6 +519,90 @@ export default function SettingsTab() {
             {singerUploading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}
             Singer photo add karo
           </Button>
+        </div>
+      </div>
+
+      {/* ── Play/Pause Button di Setting — image/circle + rang ── */}
+      <div className="rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)] p-5" data-testid="player-style">
+        <h3 className="mb-2 flex items-center gap-2 text-base font-bold text-amber-100">
+          <Palette className="h-4.5 w-4.5 text-amber-400" /> Chalao/Roko Button di Setting
+          <span className="text-xs font-normal text-amber-100/50">(now-playing vali image ja circle)</span>
+        </h3>
+        <p className="mb-4 text-xs text-amber-100/60">
+          Eh button site te geet chaldi vakat dikhega — usde vich image lagao ja simple circle rakho, te play/pause de apne pasand de rang chuno. Dono rang same vi ho sakde ne te alag-alag vi.
+        </p>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between rounded-xl border border-amber-400/15 bg-black/25 px-4 py-3">
+            <div>
+              <p className="text-sm font-bold text-amber-100">🖼️ Singer image vekhao</p>
+              <p className="mt-0.5 text-xs text-amber-100/50">
+                ON = singer photo (jithon photo nahi hove othe simple circle) • OFF = hamesha simple circle
+              </p>
+            </div>
+            <Switch
+              checked={pStyle.showImage}
+              onCheckedChange={(v) => savePlayerStyle({ showImage: v })}
+              aria-label="Singer image on/off"
+              data-testid="player-style-image"
+            />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-amber-400/15 bg-black/25 p-4">
+              <p className="text-sm font-bold text-amber-100">▶️ Play da rang (geet chal rya)</p>
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  type="color"
+                  value={pStyle.playColor || "#4ade80"}
+                  onChange={(e) => savePlayerStyle({ playColor: e.target.value })}
+                  aria-label="Play da rang chuno"
+                  data-testid="player-style-play-color"
+                  className="h-10 w-16 cursor-pointer rounded-lg border border-amber-400/30 bg-transparent"
+                />
+                <span className="font-mono text-xs text-amber-100/60">{pStyle.playColor || "koi rang nahi"}</span>
+                {pStyle.playColor && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Play da rang hatao"
+                    onClick={() => savePlayerStyle({ playColor: "" })}
+                    className="ml-auto h-8 w-8 text-red-300 hover:bg-red-400/15"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div className="rounded-xl border border-amber-400/15 bg-black/25 p-4">
+              <p className="text-sm font-bold text-amber-100">⏸️ Pause da rang (geet rukya)</p>
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  type="color"
+                  value={pStyle.pauseColor || "#4ade80"}
+                  onChange={(e) => savePlayerStyle({ pauseColor: e.target.value })}
+                  aria-label="Pause da rang chuno"
+                  data-testid="player-style-pause-color"
+                  className="h-10 w-16 cursor-pointer rounded-lg border border-amber-400/30 bg-transparent"
+                />
+                <span className="font-mono text-xs text-amber-100/60">{pStyle.pauseColor || "koi rang nahi"}</span>
+                {pStyle.pauseColor && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Pause da rang hatao"
+                    onClick={() => savePlayerStyle({ pauseColor: "" })}
+                    className="ml-auto h-8 w-8 text-red-300 hover:bg-red-400/15"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-amber-100/50">
+            💡 Rang chuno te foran save ho jauga — site te vikh jauga. Kisi rang nu hatuna hove ta osde nadd ✕ dabao.
+          </p>
         </div>
       </div>
 
