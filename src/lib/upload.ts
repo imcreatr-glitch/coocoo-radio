@@ -1,19 +1,25 @@
 import fs from "fs/promises";
 import path from "path";
+import { put, del as blobDel, head as blobHead, list as blobList } from "@vercel/blob";
 import { getStore } from "@netlify/blobs";
 import { IS_SERVERLESS, UPLOAD_DIR } from "./storage";
 
 /**
- * Uploaded media storage.
- * - Netlify (serverless): files go to Netlify Blobs — PERMANENT, survives
- *   restarts and cold starts (free tier friendly).
+ * Uploaded media storage — host-aware:
+ * - Vercel (serverless): files go to Vercel Blob — PERMANENT, survives cold
+ *   starts. saveUploadedFile() returns the blob's permanent public URL.
+ * - Netlify (serverless): files go to Netlify Blobs — same permanence.
  * - Local dev: files go to UPLOAD_DIR on disk, same as before.
- * Both return the same public URL scheme: /api/media/<name>.
+ * All flows return either /api/media/<name> (Netlify + chunked finals) or a
+ * direct blob URL (Vercel single-shot) — both render in <img>/<audio> tags.
  */
 const BLOBS_STORE = "coocoo-uploads";
+const IS_VERCEL = !!process.env.VERCEL;
 
 /** Strongly-consistent store handle — read-after-write safe (chunk assembly). */
 const strongStore = () => getStore({ name: BLOBS_STORE, consistency: "strong" });
+
+const VERCEL_BLOB_OPTS = { access: "public" as const, addRandomSuffix: false };
 
 export async function saveUploadedFile(file: File, prefix: string): Promise<string> {
   const ext = path.extname(file.name || "").toLowerCase() || "";
@@ -21,6 +27,10 @@ export async function saveUploadedFile(file: File, prefix: string): Promise<stri
   const ab = await file.arrayBuffer();
 
   if (IS_SERVERLESS) {
+    if (IS_VERCEL) {
+      const blob = await put(safe, ab, VERCEL_BLOB_OPTS);
+      return blob.url;
+    }
     const store = getStore(BLOBS_STORE);
     await store.set(safe, ab);
     return `/api/media/${safe}`;
@@ -32,12 +42,13 @@ export async function saveUploadedFile(file: File, prefix: string): Promise<stri
 }
 
 /**
- * Chunked upload support for files larger than the Netlify 6MB function
- * request-body limit. The browser sends the file in 4MB slices; each slice
- * is stored as its own blob, then finalizeChunkedUpload() stitches them
- * together into the final blob and cleans the slices up.
+ * Chunked upload support for files larger than the serverless function
+ * request-body limit (Netlify 6MB / Vercel 4.5MB). The browser sends the
+ * file in 4MB slices; each slice is stored as its own blob, then
+ * finalizeChunkedUpload() stitches them together into the final blob and
+ * cleans the slices up.
  */
-export const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB — safely under the 6MB limit
+export const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB — safely under both limits
 
 export async function initChunkedUpload(uploadId: string): Promise<void> {
   if (IS_SERVERLESS) return; // blobs are key/value — nothing to prepare
@@ -46,10 +57,21 @@ export async function initChunkedUpload(uploadId: string): Promise<void> {
 
 export async function storeChunk(uploadId: string, index: number, data: ArrayBuffer): Promise<void> {
   if (IS_SERVERLESS) {
-    await strongStore().set(`up/${uploadId}/${index}`, data);
+    const key = `up/${uploadId}/${index}`;
+    if (IS_VERCEL) {
+      await put(key, data, VERCEL_BLOB_OPTS);
+      return;
+    }
+    await strongStore().set(key, data);
     return;
   }
   await fs.writeFile(path.join(UPLOAD_DIR, "chunks", uploadId, String(index)), Buffer.from(data));
+}
+
+/** Numeric index from a chunk blob pathname ("up/<id>/<n>" -> n). */
+function chunkIndex(pathname: string, prefix: string): number {
+  const n = Number(pathname.slice(prefix.length));
+  return Number.isFinite(n) ? n : -1;
 }
 
 export async function finalizeChunkedUpload(
@@ -61,6 +83,35 @@ export async function finalizeChunkedUpload(
   const safe = `song-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
 
   if (IS_SERVERLESS) {
+    const prefix = `up/${uploadId}/`;
+
+    if (IS_VERCEL) {
+      const listed = await blobList({ prefix, limit: 1000 });
+      const byIndex = new Map<number, string>();
+      for (const b of listed.blobs) {
+        const idx = chunkIndex(b.pathname, prefix);
+        if (idx >= 0) byIndex.set(idx, b.url);
+      }
+      const parts: Buffer[] = [];
+      for (let i = 0; i < count; i++) {
+        const url = byIndex.get(i);
+        if (!url) throw new Error(`chunk ${i} missing`);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`chunk ${i} fetch failed: ${res.status}`);
+        parts.push(Buffer.from(await res.arrayBuffer()));
+      }
+      await put(safe, Buffer.concat(parts), VERCEL_BLOB_OPTS);
+      // best-effort cleanup of the slice blobs
+      for (const url of byIndex.values()) {
+        try {
+          await blobDel(url);
+        } catch {
+          // slice may already be gone — fine
+        }
+      }
+      return safe;
+    }
+
     const store = strongStore();
     const parts: Buffer[] = [];
     for (let i = 0; i < count; i++) {
@@ -93,36 +144,49 @@ export async function finalizeChunkedUpload(
 
 /**
  * Delete an uploaded file referenced by a DB row URL.
- * Handles both the new /api/media/<name> scheme and the legacy /uploads/<name>
- * scheme (old rows). External cloud URLs are ignored.
+ * Handles: Vercel blob URLs, the /api/media/<name> scheme, and the legacy
+ * /uploads/<name> scheme (old rows). External cloud URLs are ignored.
  *
- * SAFETY: no strong-consistency verification read after delete — strong reads
- * of just-deleted keys hang on Blobs, which got the whole function killed by
- * the gateway (502/504 at ~30s). A plain delete is best-effort; a briefly
- * lingering blob is harmless (the DB row drives the UI). The whole operation
- * is also capped at 8s so delete APIs ALWAYS answer in time.
+ * SAFETY: the whole operation is capped at 8s so delete APIs ALWAYS answer
+ * in time; a briefly lingering blob is harmless (the DB row drives the UI).
  */
 export async function removeUploadedFile(url: string): Promise<void> {
   if (!url) return;
   let name: string | null = null;
   if (url.startsWith("/api/media/")) name = url.slice("/api/media/".length);
   else if (url.startsWith("/uploads/")) name = url.slice("/uploads/".length);
-  else return; // external URL — nothing stored locally
-  name = path.basename(name);
-  if (!name || name.startsWith(".")) return;
+  name = name ? path.basename(name) : null;
+  if (name && (name.startsWith(".") || name.includes("/") || name.includes("\\"))) return;
 
-  const target = name;
   const work = (async () => {
-    if (IS_SERVERLESS) {
+    if (IS_SERVERLESS && IS_VERCEL) {
       try {
-        await getStore(BLOBS_STORE).delete(target);
+        if (url.startsWith("http")) {
+          // full Vercel Blob URL (from saveUploadedFile) — direct delete
+          await blobDel(url);
+        } else if (name) {
+          // legacy path — resolve to a blob URL first (old rows may not map
+          // to any blob; that's fine, the DB row drives the UI)
+          const meta = await blobHead(name).catch(() => null);
+          if (meta?.url) await blobDel(meta.url);
+        }
       } catch (err) {
-        console.error("[coocoo:upload] blob delete failed:", target, err);
+        console.error("[coocoo:upload] blob delete failed:", name ?? url, err);
       }
       return;
     }
+    if (IS_SERVERLESS) {
+      if (!name) return; // external URL — nothing stored locally
+      try {
+        await getStore(BLOBS_STORE).delete(name);
+      } catch (err) {
+        console.error("[coocoo:upload] blob delete failed:", name, err);
+      }
+      return;
+    }
+    if (!name) return; // external URL — nothing stored locally
     try {
-      await fs.unlink(path.join(UPLOAD_DIR, target));
+      await fs.unlink(path.join(UPLOAD_DIR, name));
     } catch {
       // file may already be gone (or a legacy static asset)
     }
