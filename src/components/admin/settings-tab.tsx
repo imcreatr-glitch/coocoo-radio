@@ -42,6 +42,11 @@ export default function SettingsTab() {
   const [imgFile, setImgFile] = useState<File | null>(null);
   const [imgUploading, setImgUploading] = useState(false);
 
+  // singer photos (stamp-size artist image shown with now-playing)
+  const [singerName, setSingerName] = useState("");
+  const [singerUrl, setSingerUrl] = useState("");
+  const [singerUploading, setSingerUploading] = useState(false);
+
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
@@ -152,6 +157,58 @@ export default function SettingsTab() {
       toast({ title: "Photo upload nahi hoi", description: e instanceof Error ? e.message : "", variant: "destructive" });
     } finally {
       setImgUploading(false);
+    }
+  };
+
+  // ── singer photos ──
+  const singers: Record<string, string> = (() => {
+    try {
+      const v = JSON.parse(settings.artistImages || "{}") as unknown;
+      return v && typeof v === "object" ? (v as Record<string, string>) : {};
+    } catch {
+      return {};
+    }
+  })();
+
+  const uploadSingerImg = async (f: File) => {
+    setSingerUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", f);
+      const res = await adminFetch("/api/uploads?action=single", { method: "POST", body: fd });
+      const j = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !j.url) throw new Error(j.error || "Upload fail");
+      setSingerUrl(j.url);
+      toast({ title: "🖼️ Photo upload ho gayi!", description: "Hun singer da naam likh ke 'Add karo' dabao" });
+    } catch (e) {
+      toast({ title: "Photo upload nahi hoi", description: e instanceof Error ? e.message : "", variant: "destructive" });
+    } finally {
+      setSingerUploading(false);
+    }
+  };
+
+  const addSinger = async () => {
+    if (!singerName.trim() || !singerUrl) {
+      toast({ title: "Singer da naam te photo dono chahide", variant: "destructive" });
+      return;
+    }
+    const next = { ...singers, [singerName.trim()]: singerUrl };
+    try {
+      await putSettings({ artistImages: JSON.stringify(next) }, `🧑‍🎤 ${singerName.trim()} di photo jud gayi!`);
+      setSingerName("");
+      setSingerUrl("");
+    } catch {
+      toast({ title: "Add nahi hoya", variant: "destructive" });
+    }
+  };
+
+  const delSinger = async (name: string) => {
+    const next = { ...singers };
+    delete next[name];
+    try {
+      await putSettings({ artistImages: JSON.stringify(next) }, "Singer di photo kad ditte");
+    } catch {
+      toast({ title: "Delete nahi hoya", variant: "destructive" });
     }
   };
 
@@ -385,6 +442,70 @@ export default function SettingsTab() {
           <Button onClick={addStream} disabled={libSaving} variant="outline" className="border-amber-400/40 text-amber-200">
             {libSaving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}
             Library ch add karo
+          </Button>
+        </div>
+      </div>
+
+      {/* ── Singer Photos — stamp-size image with now-playing ── */}
+      <div className="rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)] p-5" data-testid="singer-photos">
+        <h3 className="mb-2 flex items-center gap-2 text-base font-bold text-amber-100">
+          🧑‍🎤 Singer Photos <span className="text-xs font-normal text-amber-100/50">(song chaldi vakat now-playing naal dikhegi)</span>
+        </h3>
+        <p className="mb-3 text-xs text-amber-100/60">
+          Singer da naam <b className="text-amber-300">bilkul ohida likho</b> jiven song ch artist likhya a (jiven: Mahendra Kapoor) — fer ohdi photo now-playing vich dikhegi.
+        </p>
+
+        {Object.keys(singers).length > 0 && (
+          <div className="nice-scroll mb-3 max-h-40 space-y-2 overflow-y-auto pr-1">
+            {Object.entries(singers).map(([name, url]) => (
+              <div key={name} className="flex items-center gap-3 rounded-xl border border-amber-400/10 bg-black/25 px-3 py-2">
+                <img src={url} alt={name} className="h-9 w-9 shrink-0 rounded-full border border-amber-400/30 object-cover" />
+                <p className="min-w-0 flex-1 truncate text-sm font-semibold text-amber-50">{name}</p>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label={`${name} di photo kado`}
+                  onClick={() => delSinger(name)}
+                  className="h-8 w-8 shrink-0 text-red-300 hover:bg-red-400/15"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="space-y-2 border-t border-amber-400/15 pt-3">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <FieldLabel>Singer da naam</FieldLabel>
+              <Input value={singerName} onChange={(e) => setSingerName(e.target.value)} placeholder="jiven: Mahendra Kapoor" />
+            </div>
+            <div className="space-y-1.5">
+              <FieldLabel>Singer di photo (chhoti square, max 4MB)</FieldLabel>
+              <FilePick
+                accept="image/*"
+                fileName={singerUrl ? "✓ photo upload ho gayi" : undefined}
+                onChange={(f) => {
+                  if (f) uploadSingerImg(f);
+                }}
+              />
+            </div>
+          </div>
+          {singerUploading && (
+            <p className="flex items-center gap-1.5 text-xs text-amber-300">
+              <Loader2 className="h-3 w-3 animate-spin" /> Upload ho rahi hai...
+            </p>
+          )}
+          <Button
+            onClick={addSinger}
+            disabled={singerUploading}
+            variant="outline"
+            data-testid="singer-add"
+            className="border-amber-400/40 text-amber-200"
+          >
+            {singerUploading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}
+            Singer photo add karo
           </Button>
         </div>
       </div>
