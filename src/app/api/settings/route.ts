@@ -12,6 +12,7 @@ const KEYS = [
   "liveImage",
   "streamLibrary",
   "artistImages",
+  "playerStyle",
 ] as const;
 
 export async function GET() {
@@ -28,6 +29,7 @@ export async function GET() {
     liveImage: map.liveImage || "",
     streamLibrary: map.streamLibrary || "",
     artistImages: map.artistImages || "",
+    playerStyle: map.playerStyle || "",
   });
 }
 
