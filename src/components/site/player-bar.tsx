@@ -7,7 +7,7 @@ import { Slider } from "@/components/ui/slider";
 import { Equalizer } from "@/components/site/hero";
 import { usePlayer } from "@/lib/store";
 import { adminFetch, getToken } from "@/lib/client-auth";
-import { artistImageFor, parseStreamLibrary } from "@/lib/types";
+import { artistImageFor, parsePlayerStyle, parseStreamLibrary } from "@/lib/types";
 
 function fmt(sec: number): string {
   if (!isFinite(sec) || sec < 0) return "0:00";
@@ -37,6 +37,8 @@ export default function PlayerBar() {
   const isStream = settings.liveMode === "stream" && !!settings.liveUrl;
   const current = tracks.length > 0 ? tracks[index % tracks.length] : null;
   const artistImg = !isStream && current ? artistImageFor(settings.artistImages, current.artist) : null;
+  const pStyle = parsePlayerStyle(settings.playerStyle);
+  const barRingColor = playing ? pStyle.playColor : pStyle.pauseColor;
   const canGurbani = !!settings.liveUrl || parseStreamLibrary(settings.streamLibrary).length > 0;
 
   /** admin one-click: Gurbani ON (stream) / OFF (songs auto-pilot) */
@@ -165,20 +167,23 @@ export default function PlayerBar() {
             </p>
           ) : current ? (
             <div className="mt-0.5 flex items-center gap-2" data-testid="player-track">
-              {artistImg && (
+              {pStyle.showImage && artistImg && (
                 <button
                   type="button"
                   onClick={toggle}
                   aria-label={playing ? "Pause karo" : "Chalao"}
-                  title={playing ? "Pause (hari ring = chal raha)" : "Chalao (laal ring = rukya)"}
-                  className={`shrink-0 rounded-full outline-none ring-2 transition-all duration-300 active:scale-95 ${
-                    playing ? "ring-green-400" : "ring-red-500"
-                  }`}
+                  title={playing ? "Click = Pause" : "Click = Chalao"}
+                  className="shrink-0 rounded-full outline-none transition-all duration-300 active:scale-95"
+                  style={
+                    barRingColor
+                      ? { border: `2px solid ${barRingColor}`, boxShadow: `0 0 10px ${barRingColor}80` }
+                      : { border: "1px solid rgba(251,191,36,0.4)" }
+                  }
                 >
                   <img
                     src={artistImg}
                     alt={current.artist || "Singer"}
-                    className="h-9 w-9 rounded-full border border-black/40 object-cover"
+                    className="h-9 w-9 rounded-full object-cover"
                   />
                 </button>
               )}
