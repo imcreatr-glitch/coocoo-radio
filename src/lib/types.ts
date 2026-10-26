@@ -58,6 +58,7 @@ export interface StationSettings {
   liveImage?: string; // vertical photo shown in the hero live player card
   streamLibrary?: string; // JSON array of StreamEntry — admin's saved live streams
   artistImages?: string; // JSON map singerName -> stamp-size photo URL (shown with now-playing)
+  playerStyle?: string; // JSON PlayerStyle — now-playing button: image/circle + play/pause colors
 }
 
 export const DEFAULT_SETTINGS: StationSettings = {
@@ -70,7 +71,31 @@ export const DEFAULT_SETTINGS: StationSettings = {
   liveImage: "",
   streamLibrary: "",
   artistImages: "",
+  playerStyle: "",
 };
+
+/** Now-playing play/pause button style (admin-configurable) */
+export interface PlayerStyle {
+  showImage: boolean; // true = singer photo (circle fallback if missing), false = simple circle
+  playColor: string; // ring/circle color while playing ("" = default no-ring look)
+  pauseColor: string; // ring/circle color while paused ("" = no ring)
+}
+
+/** Parse playerStyle setting (never throws, sensible defaults) */
+export function parsePlayerStyle(raw: string | undefined | null): PlayerStyle {
+  const def: PlayerStyle = { showImage: true, playColor: "#4ade80", pauseColor: "" };
+  if (!raw) return def;
+  try {
+    const v = JSON.parse(raw) as Partial<PlayerStyle>;
+    return {
+      showImage: typeof v.showImage === "boolean" ? v.showImage : true,
+      playColor: typeof v.playColor === "string" ? v.playColor : "#4ade80",
+      pauseColor: typeof v.pauseColor === "string" ? v.pauseColor : "",
+    };
+  } catch {
+    return def;
+  }
+}
 
 /** One saved live stream in the admin's library */
 export interface StreamEntry {
