@@ -84,7 +84,7 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
                 data-testid="live-player-card"
                 aria-label={playing ? "Live stream pause karo" : "Live stream chalao"}
                 title={playing ? "Click = Pause" : "Click = Chalao"}
-                className="relative mt-6 h-80 w-full max-w-xs cursor-pointer overflow-hidden rounded-2xl shadow-[0_16px_50px_rgba(0,0,0,0.5)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                className="relative mt-6 h-40 w-full max-w-[160px] cursor-pointer overflow-hidden rounded-xl shadow-[0_12px_36px_rgba(0,0,0,0.5)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                 style={
                   liveStateColor
                     ? { border: `4px solid ${liveStateColor}`, boxShadow: `0 0 22px ${liveStateColor}80` }
@@ -94,18 +94,18 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
                 <img src={settings.liveImage} alt={settings.liveTitle || "Live"} className="h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/20" />
                 <span
-                  className={`absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full text-white backdrop-blur-[2px] ${
+                  className={`absolute inset-0 m-auto flex h-9 w-9 items-center justify-center rounded-full text-white backdrop-blur-[2px] ${
                     playing ? "bg-black/40" : "bg-black/60"
                   }`}
                 >
-                  {playing ? <Pause className="h-7 w-7" /> : <Play className="ml-1 h-7 w-7" />}
+                  {playing ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
                 </span>
-                <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 p-3">
-                  <Badge className="live-dot gap-1 border-0 bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                <div className="absolute inset-x-0 bottom-0 flex items-center gap-1.5 p-2">
+                  <Badge className="live-dot gap-1 border-0 bg-red-600 px-1.5 py-0 text-[8px] font-bold text-white">
                     LIVE
                   </Badge>
-                  <span className="truncate text-sm font-bold text-white">{settings.liveTitle || "Darbar Sahib Live"}</span>
-                  <Equalizer playing={playing} bars={4} className="ml-auto h-4" />
+                  <span className="truncate text-[10px] font-bold leading-tight text-white">{settings.liveTitle || "Darbar Sahib Live"}</span>
+                  <Equalizer playing={playing} bars={3} className="ml-auto h-2.5" />
                 </div>
               </motion.div>
             );
