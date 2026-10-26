@@ -6,7 +6,7 @@ import { ExternalLink, Image as ImageIcon, Megaphone, Video } from "lucide-react
 import { Badge } from "@/components/ui/badge";
 import { SectionTitle } from "@/components/site/schedule";
 import type { AdItem } from "@/lib/types";
-import { ytEmbed } from "@/lib/types";
+import { ytEmbed, ytId } from "@/lib/types";
 
 export default function AdsSection() {
   const [ads, setAds] = useState<AdItem[]>([]);
@@ -20,8 +20,9 @@ export default function AdsSection() {
       .catch(() => {});
   }, []);
 
-  const imageAds = ads.filter((a) => a.type === "image");
-  const videoAds = ads.filter((a) => a.type === "video");
+  // YouTube URL = video ad, chahe admin type "image" chun de (auto-detect = user galti-proof)
+  const videoAds = ads.filter((a) => a.type === "video" || ytId(a.mediaUrl));
+  const imageAds = ads.filter((a) => a.type !== "video" && !ytId(a.mediaUrl));
 
   if (ads.length === 0) return null;
 
