@@ -136,10 +136,19 @@ export default function AdsTab() {
             </div>
             <div className="space-y-1.5">
               <FieldLabel>Ja media URL (optional)</FieldLabel>
-              <Input value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} placeholder={type === "video" ? "https://.../ad.mp4 ja YouTube link" : "https://.../banner.jpg"} inputMode="url" />
-              {type === "video" && (
-                <p className="text-xs text-amber-100/50">💡 Video layi <b className="text-amber-300">YouTube da link vi chalega</b> — jiven youtube.com/watch?v=...</p>
-              )}
+              <Input
+                value={mediaUrl}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setMediaUrl(v);
+                  if (ytId(v)) setType("video"); // YouTube link paste = khud Video Ad type chuno
+                }}
+                placeholder={type === "video" ? "https://.../ad.mp4 ja YouTube link" : "https://.../banner.jpg"}
+                inputMode="url"
+              />
+              <p className="text-xs text-amber-100/50">
+                💡 <b className="text-amber-300">YouTube da link vi chalega</b> (youtu.be ja youtube.com/watch) — paste kitta ta Video Ad type khud chun liya jauga
+              </p>
             </div>
           </div>
           <div className="space-y-1.5">
@@ -168,7 +177,7 @@ export default function AdsTab() {
           <div className="nice-scroll max-h-96 space-y-2 overflow-y-auto pr-1" data-testid="ads-admin-list">
             {ads.map((ad) => (
               <div key={ad.id} className="flex items-center gap-3 rounded-xl border border-amber-400/10 bg-black/25 px-3 py-2.5">
-                {ad.type === "video" && ytId(ad.mediaUrl) ? (
+                {ytId(ad.mediaUrl) ? (
                   <img src={ytThumb(ad.mediaUrl) || ""} alt="" className="h-10 w-16 shrink-0 rounded-lg object-cover" />
                 ) : ad.type === "image" ? (
                   <img src={ad.mediaUrl} alt="" className="h-10 w-16 shrink-0 rounded-lg object-cover" />
