@@ -491,9 +491,9 @@ export default function LiveStudio() {
             className="mb-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-200"
             data-testid="live-ws-down"
           >
-            Voice room lai realtime (WebSocket) connection chahida hai, jo is serverless hosting
-            (Netlify) te available nahi. Live voice discussion main site te chaldi hai — Online Chat
-            ithē polling mode vich kaam karega. 🎙️
+            Voice room (host console) lai vakhra realtime (WebSocket) server chahida hai, jo Vercel
+            vargi free cloud hosting te available nahi. Is layi Live Voice Room sirf apne computer te
+            (npm run dev) chaldi hai. Live site te gal-baat lyi Online Chat vachhde vich kaam karega. 🎙️
           </p>
         )}
 
