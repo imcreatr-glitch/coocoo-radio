@@ -143,15 +143,14 @@ export default function SettingsTab() {
     }
   };
 
-  // ── live photo upload — browser ch resize hoke data URL bandi (server storage di lor nahi,
-  //    Vercel/Netlify dono te 100% chalda — pehlan Blob token di kami karke fail hunda c) ──
+  // ── live photo upload — browser ch resize hoke data URL, te FORAN save ho jandi hai
+  //    (alag 'Save karo' di lor nahi — singer photo warga galti-proof, Vercel-safe) ──
   const uploadLiveImg = async (f: File) => {
     setImgFile(f);
     setImgUploading(true);
     try {
       const dataUrl = await fileToDataUrl(f, 1024, 0.82);
-      setSettings((s) => ({ ...s, liveImage: dataUrl }));
-      toast({ title: "🖼️ Photo jud gayi!", description: "Hun 'Save karo' zaroor dabao" });
+      await putSettings({ liveImage: dataUrl }, "🖼️ Darbar Sahib di photo jud gayi — live player ch dikh rahi hai!");
     } catch (e) {
       toast({ title: "Photo upload nahi hoi", description: e instanceof Error ? e.message : "", variant: "destructive" });
     } finally {
