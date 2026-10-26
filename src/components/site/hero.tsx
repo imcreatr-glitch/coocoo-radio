@@ -6,7 +6,7 @@ import { Pause, Play, Radio, Sunrise, Tv } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { usePlayer } from "@/lib/store";
-import { artistImageFor, isOnAir, type ShowItem } from "@/lib/types";
+import { artistImageFor, isOnAir, parsePlayerStyle, type ShowItem } from "@/lib/types";
 
 export function Equalizer({ playing, bars = 7, className = "" }: { playing: boolean; bars?: number; className?: string }) {
   const heights = useMemo(() => Array.from({ length: bars }, (_, i) => 0.35 + ((i * 37) % 65) / 100), [bars]);
@@ -40,6 +40,7 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
     currentTrack && settings.liveMode !== "stream"
       ? artistImageFor(settings.artistImages, currentTrack.artist)
       : null;
+  const pStyle = parsePlayerStyle(settings.playerStyle);
 
   return (
     <section className="hero-bg relative overflow-hidden border-b border-amber-400/10">
@@ -121,33 +122,58 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
                 </p>
               ) : currentTrack ? (
                 <div className="mt-1.5 flex items-center gap-4" data-testid="hero-track">
-                  {artistImg && (
-                    <button
-                      type="button"
-                      onClick={toggle}
-                      data-testid="artist-image-toggle"
-                      aria-label={playing ? "Pause karo" : "Chalao"}
-                      title={playing ? "Image te click = Pause (hari ring)" : "Image te click = Chalao (laal ring)"}
-                      className={`relative shrink-0 rounded-full outline-none ring-4 transition-all duration-300 hover:scale-105 active:scale-95 ${
-                        playing
-                          ? "ring-green-400 shadow-[0_0_22px_rgba(74,222,128,0.5)]"
-                          : "ring-red-500 shadow-[0_0_22px_rgba(239,68,68,0.5)]"
-                      }`}
-                    >
-                      <img
-                        src={artistImg}
-                        alt={currentTrack.artist || "Singer"}
-                        className="h-20 w-20 rounded-full border-2 border-black/50 object-cover sm:h-24 sm:w-24"
-                      />
-                      <span
-                        className={`absolute inset-0 m-auto flex h-9 w-9 items-center justify-center rounded-full text-white backdrop-blur-[2px] ${
-                          playing ? "bg-black/40" : "bg-black/60"
-                        }`}
+                  {(() => {
+                    const ringColor = playing ? pStyle.playColor : pStyle.pauseColor;
+                    const ringStyle = ringColor
+                      ? { border: `4px solid ${ringColor}`, boxShadow: `0 0 22px ${ringColor}80` }
+                      : { border: "1px solid rgba(251,191,36,0.4)" };
+                    const toggleBtn = (children: React.ReactNode, testId: string) => (
+                      <button
+                        type="button"
+                        onClick={toggle}
+                        data-testid={testId}
+                        aria-label={playing ? "Pause karo" : "Chalao"}
+                        title={playing ? "Click = Pause" : "Click = Chalao"}
+                        className="relative shrink-0 rounded-full outline-none transition-all duration-300 hover:scale-105 active:scale-95"
+                        style={ringStyle}
                       >
-                        {playing ? <Pause className="h-5 w-5" /> : <Play className="ml-0.5 h-5 w-5" />}
-                      </span>
-                    </button>
-                  )}
+                        {children}
+                      </button>
+                    );
+                    // Image mode: singer photo (jivein video player), circle fallback jadon photo nahi
+                    if (pStyle.showImage && artistImg) {
+                      return toggleBtn(
+                        <>
+                          <img
+                            src={artistImg}
+                            alt={currentTrack.artist || "Singer"}
+                            className="h-20 w-20 rounded-full border-2 border-black/40 object-cover sm:h-24 sm:w-24"
+                          />
+                          <span
+                            className={`absolute inset-0 m-auto flex h-9 w-9 items-center justify-center rounded-full text-white backdrop-blur-[2px] ${
+                              playing ? "bg-black/40" : "bg-black/60"
+                            }`}
+                          >
+                            {playing ? <Pause className="h-5 w-5" /> : <Play className="ml-0.5 h-5 w-5" />}
+                          </span>
+                        </>,
+                        "artist-image-toggle"
+                      );
+                    }
+                    // Simple circle mode — color admin vich chuni hoi (dono same ya alag)
+                    const stateColor = playing ? pStyle.playColor : pStyle.pauseColor;
+                    return toggleBtn(
+                      <span
+                        className={`flex h-20 w-20 items-center justify-center rounded-full sm:h-24 sm:w-24 ${
+                          stateColor ? "text-white" : "bg-gradient-to-br from-amber-400 to-orange-600 text-black"
+                        }`}
+                        style={stateColor ? { backgroundColor: stateColor } : undefined}
+                      >
+                        {playing ? <Pause className="h-8 w-8" /> : <Play className="ml-1 h-8 w-8" />}
+                      </span>,
+                      "player-circle-toggle"
+                    );
+                  })()}
                   <div className="min-w-0">
                     <p className="text-sm font-bold leading-snug text-amber-50">🎵 {currentTrack.title}</p>
                     {currentTrack.artist && (
