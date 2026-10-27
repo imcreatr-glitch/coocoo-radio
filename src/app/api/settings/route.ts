@@ -13,6 +13,10 @@ const KEYS = [
   "streamLibrary",
   "artistImages",
   "playerStyle",
+  "donationUpi",
+  "donationNote",
+  "donationQr",
+  "onAirVideo",
 ] as const;
 
 export async function GET() {
@@ -30,6 +34,10 @@ export async function GET() {
     streamLibrary: map.streamLibrary || "",
     artistImages: map.artistImages || "",
     playerStyle: map.playerStyle || "",
+    donationUpi: map.donationUpi || "",
+    donationNote: map.donationNote || "",
+    donationQr: map.donationQr || "",
+    onAirVideo: map.onAirVideo || "",
   });
 }
 
