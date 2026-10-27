@@ -82,7 +82,7 @@ export default function NewsSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-40px" }}
                 transition={{ duration: 0.4, delay: i * 0.05 }}
-                className="flex flex-col overflow-hidden rounded-2xl border border-amber-400/15 bg-[color:var(--bg-card)] transition-all hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(245,158,11,0.15)]"
+                className="flex flex-col overflow-hidden rounded-2xl border border-amber-400/15 bg-[color:var(--bg-card)] transition-all hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(var(--amb-rgb),0.15)]"
                 data-testid={`news-card-${i}`}
               >
                 {item.imageUrl && (
