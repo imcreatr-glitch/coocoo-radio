@@ -7,7 +7,7 @@ export default function Footer() {
   const stationName = usePlayer((s) => s.settings.stationName);
 
   return (
-    <footer className="mt-auto border-t border-amber-400/15 bg-[oklch(0.15_0.012_60)] pt-10 [padding-bottom:calc(theme(space.28)+env(safe-area-inset-bottom))]">
+    <footer className="mt-auto border-t border-amber-400/15 bg-[color:var(--bg-footer)] pt-10 [padding-bottom:calc(theme(space.28)+env(safe-area-inset-bottom))]">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-between">
           <div className="flex items-center gap-3">
