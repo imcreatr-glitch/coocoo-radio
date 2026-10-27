@@ -59,6 +59,10 @@ export interface StationSettings {
   streamLibrary?: string; // JSON array of StreamEntry — admin's saved live streams
   artistImages?: string; // JSON map singerName -> stamp-size photo URL (shown with now-playing)
   playerStyle?: string; // JSON PlayerStyle — now-playing button: image/circle + play/pause colors
+  donationUpi?: string; // UPI ID — Seva/Donation button (dono khali = button site te nadlo)
+  donationNote?: string; // optional message inside donation dialog
+  donationQr?: string; // data URL — UPI QR image in donation dialog
+  onAirVideo?: string; // YouTube URL — ON AIR NOW card ch video (khaali = text design)
 }
 
 export const DEFAULT_SETTINGS: StationSettings = {
@@ -72,6 +76,10 @@ export const DEFAULT_SETTINGS: StationSettings = {
   streamLibrary: "",
   artistImages: "",
   playerStyle: "",
+  donationUpi: "",
+  donationNote: "",
+  donationQr: "",
+  onAirVideo: "",
 };
 
 /** Now-playing play/pause button style (admin-configurable) */
