@@ -519,9 +519,78 @@ html[data-theme="royal"] { --amb-rgb: 99, 102, 241; }
 html[data-theme="emerald"] { --amb-rgb: 52, 211, 153; }
 html[data-theme="violet"] { --amb-rgb: 167, 139, 250; }
 html[data-theme="crimson"] { --amb-rgb: 251, 113, 133; }
+html[data-theme="white"] { --amb-rgb: 0, 0, 0; }
+html[data-theme="black"] { --amb-rgb: 255, 255, 255; }
 
-/* Black & White — pure monochrome, koi rang nahi (sirf kaala, safaid te gray) */
-html[data-theme="mono"] {
+/* Pure White — poori background safaid, text kaala (light monochrome).
+   Amber/orange scale INVERT: pehla jo text light si oh hun dark (white bg te readable) */
+html[data-theme="white"] {
+  --amb-rgb: 0, 0, 0;
+  --color-amber-50: oklch(0.16 0 0);
+  --color-amber-100: oklch(0.2 0 0);
+  --color-amber-200: oklch(0.28 0 0);
+  --color-amber-300: oklch(0.38 0 0);
+  --color-amber-400: oklch(0.46 0 0);
+  --color-amber-500: oklch(0.52 0 0);
+  --color-amber-600: oklch(0.6 0 0);
+  --color-amber-700: oklch(0.66 0 0);
+  --color-amber-800: oklch(0.72 0 0);
+  --color-amber-900: oklch(0.78 0 0);
+  --color-amber-950: oklch(0.88 0 0);
+  --color-orange-50: oklch(0.17 0 0);
+  --color-orange-100: oklch(0.21 0 0);
+  --color-orange-200: oklch(0.29 0 0);
+  --color-orange-300: oklch(0.38 0 0);
+  --color-orange-400: oklch(0.48 0 0);
+  --color-orange-500: oklch(0.52 0 0);
+  --color-orange-600: oklch(0.58 0 0);
+  --color-orange-700: oklch(0.64 0 0);
+  --color-orange-800: oklch(0.72 0 0);
+  --color-orange-900: oklch(0.78 0 0);
+  --color-orange-950: oklch(0.88 0 0);
+  --glow-a: rgba(0, 0, 0, 0.05);
+  --glow-b: rgba(0, 0, 0, 0.035);
+  --glow-c: rgba(0, 0, 0, 0.03);
+  --hero-from: oklch(0.975 0 0);
+  --hero-to: oklch(0.94 0 0);
+  --bg-base: oklch(0.97 0 0);
+  --bg-footer: oklch(0.93 0 0);
+  --bg-deep: oklch(0.95 0 0);
+  --bg-panel: oklch(0.96 0 0);
+  --bg-card: oklch(0.985 0 0);
+  --bg-alt: oklch(0.92 0 0);
+  --bg-grad-end: oklch(0.955 0 0);
+  --bg-grad-start: oklch(0.925 0 0);
+  --bg-via: oklch(0.94 0 0);
+}
+
+/* White theme: dark translucent panels/chips light kar do (form fields, tabs, chat bubbles).
+   Photo overlays (bg-black/50+/60, bg-black solid, dialog scrim) dark hi rehan ge — intent */
+html[data-theme="white"] .bg-black\/25 { background-color: rgba(0, 0, 0, 0.05); }
+html[data-theme="white"] .bg-black\/30 { background-color: rgba(0, 0, 0, 0.06); }
+
+html[data-theme="white"].dark {
+  --background: oklch(0.97 0 0);
+  --foreground: oklch(0.15 0 0);
+  --card: oklch(0.99 0 0);
+  --card-foreground: oklch(0.15 0 0);
+  --popover: oklch(0.99 0 0);
+  --popover-foreground: oklch(0.15 0 0);
+  --primary: oklch(0.2 0 0);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.93 0 0);
+  --secondary-foreground: oklch(0.2 0 0);
+  --muted: oklch(0.94 0 0);
+  --muted-foreground: oklch(0.48 0 0);
+  --accent: oklch(0.93 0 0);
+  --accent-foreground: oklch(0.2 0 0);
+  --border: oklch(0.4 0 0) / 18%;
+  --input: oklch(0.4 0 0) / 22%;
+  --ring: oklch(0.35 0 0);
+}
+
+/* Pure Black — poori background kaala, text safaid (true black monochrome) */
+html[data-theme="black"] {
   --amb-rgb: 255, 255, 255;
   --color-amber-50: oklch(0.987 0 0);
   --color-amber-100: oklch(0.962 0 0);
@@ -545,38 +614,38 @@ html[data-theme="mono"] {
   --color-orange-800: oklch(0.47 0 0);
   --color-orange-900: oklch(0.408 0 0);
   --color-orange-950: oklch(0.266 0 0);
-  --glow-a: rgba(255, 255, 255, 0.10);
-  --glow-b: rgba(255, 255, 255, 0.07);
+  --glow-a: rgba(255, 255, 255, 0.09);
+  --glow-b: rgba(255, 255, 255, 0.06);
   --glow-c: rgba(255, 255, 255, 0.05);
-  --hero-from: oklch(0.19 0 0);
-  --hero-to: oklch(0.165 0 0);
-  --bg-base: oklch(0.165 0 0);
-  --bg-footer: oklch(0.15 0 0);
-  --bg-deep: oklch(0.17 0 0);
-  --bg-panel: oklch(0.185 0 0);
-  --bg-card: oklch(0.21 0 0);
-  --bg-alt: oklch(0.24 0 0);
-  --bg-grad-end: oklch(0.19 0 0);
-  --bg-grad-start: oklch(0.24 0 0);
-  --bg-via: oklch(0.2 0 0);
+  --hero-from: oklch(0.105 0 0);
+  --hero-to: oklch(0.085 0 0);
+  --bg-base: oklch(0.09 0 0);
+  --bg-footer: oklch(0.075 0 0);
+  --bg-deep: oklch(0.1 0 0);
+  --bg-panel: oklch(0.105 0 0);
+  --bg-card: oklch(0.125 0 0);
+  --bg-alt: oklch(0.15 0 0);
+  --bg-grad-end: oklch(0.1 0 0);
+  --bg-grad-start: oklch(0.13 0 0);
+  --bg-via: oklch(0.11 0 0);
 }
 
-html[data-theme="mono"].dark {
-  --background: oklch(0.145 0 0);
+html[data-theme="black"].dark {
+  --background: oklch(0.08 0 0);
   --foreground: oklch(0.97 0 0);
-  --card: oklch(0.185 0 0);
+  --card: oklch(0.125 0 0);
   --card-foreground: oklch(0.97 0 0);
-  --popover: oklch(0.17 0 0);
+  --popover: oklch(0.1 0 0);
   --popover-foreground: oklch(0.97 0 0);
-  --primary: oklch(0.85 0 0);
-  --primary-foreground: oklch(0.145 0 0);
-  --secondary: oklch(0.25 0 0);
+  --primary: oklch(0.88 0 0);
+  --primary-foreground: oklch(0.08 0 0);
+  --secondary: oklch(0.18 0 0);
   --secondary-foreground: oklch(0.97 0 0);
-  --muted: oklch(0.25 0 0);
-  --muted-foreground: oklch(0.72 0 0);
-  --accent: oklch(0.28 0 0);
+  --muted: oklch(0.18 0 0);
+  --muted-foreground: oklch(0.66 0 0);
+  --accent: oklch(0.2 0 0);
   --accent-foreground: oklch(0.97 0 0);
-  --border: oklch(0.55 0 0) / 22%;
-  --input: oklch(0.55 0 0) / 25%;
-  --ring: oklch(0.85 0 0);
+  --border: oklch(0.6 0 0) / 20%;
+  --input: oklch(0.6 0 0) / 24%;
+  --ring: oklch(0.88 0 0);
 }
