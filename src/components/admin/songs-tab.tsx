@@ -312,7 +312,7 @@ export default function SongsTab({ onChanged }: { onChanged?: () => void }) {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)] p-5">
+      <div className="rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)] p-5">
         <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-amber-100">
           <Music className="h-4.5 w-4.5 text-amber-400" /> Nava Song Add Karo
         </h3>
@@ -462,7 +462,7 @@ export default function SongsTab({ onChanged }: { onChanged?: () => void }) {
       </div>
 
       {/* Live playlist builder */}
-      <div className="rounded-2xl border border-red-400/25 bg-[oklch(0.21_0.018_60)] p-5" data-testid="playlist-builder">
+      <div className="rounded-2xl border border-red-400/25 bg-[color:var(--bg-card)] p-5" data-testid="playlist-builder">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-base font-bold text-amber-100">
             <Radio className="h-4.5 w-4.5 text-red-400" /> 🔴 Live Playlist (jo visitors sune ge)
@@ -528,7 +528,7 @@ export default function SongsTab({ onChanged }: { onChanged?: () => void }) {
       </div>
 
       {/* Songs list — singer folders naal */}
-      <div className="rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)] p-5">
+      <div className="rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)] p-5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-base font-bold text-amber-100">Playlist ({songs.length} songs)</h3>
         </div>
@@ -540,7 +540,7 @@ export default function SongsTab({ onChanged }: { onChanged?: () => void }) {
           <div className="nice-scroll max-h-96 space-y-2 overflow-y-auto pr-1" data-testid="songs-list">
             {groups.map((g) => (
               <div key={g.artist}>
-                <p className="sticky top-0 z-10 mb-1 flex items-center gap-1.5 rounded-lg bg-[oklch(0.24_0.02_60)] px-2 py-1 text-xs font-bold uppercase tracking-wide text-amber-300">
+                <p className="sticky top-0 z-10 mb-1 flex items-center gap-1.5 rounded-lg bg-[color:var(--bg-alt)] px-2 py-1 text-xs font-bold uppercase tracking-wide text-amber-300">
                   <FolderOpen className="h-3.5 w-3.5" /> {g.artist} ({g.items.length})
                 </p>
                 {g.items.map((s) => {
