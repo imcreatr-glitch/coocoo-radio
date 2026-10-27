@@ -13,7 +13,7 @@ import PlayerBar from "@/components/site/player-bar";
 import Rooster from "@/components/site/rooster";
 import AdminPanel from "@/components/admin/admin-panel";
 import { usePlayer } from "@/lib/store";
-import type { ShowItem } from "@/lib/types";
+import { parseTheme, type ShowItem } from "@/lib/types";
 
 export default function Home() {
   const [adminOpen, setAdminOpen] = useState(false);
@@ -40,6 +40,16 @@ export default function Home() {
       document.body.style.overflow = "";
     };
   }, [adminOpen]);
+
+  // site color theme — sunrise = default (attribute removed), baki themes html[data-theme] set karde ne
+  const theme = parseTheme(settings.theme);
+  useEffect(() => {
+    if (theme === "sunrise") {
+      document.documentElement.removeAttribute("data-theme");
+    } else {
+      document.documentElement.setAttribute("data-theme", theme);
+    }
+  }, [theme]);
 
   return (
     <div className="flex min-h-screen flex-col">
