@@ -12,7 +12,7 @@ import { usePlayer } from "@/lib/store";
 import { adminFetch } from "@/lib/client-auth";
 import { fileToDataUrl } from "@/lib/image-client";
 import type { StationSettings } from "@/lib/types";
-import { parsePlayerStyle, parseStreamLibrary, type PlayerStyle, type StreamEntry } from "@/lib/types";
+import { parsePlayerStyle, parseStreamLibrary, ytId, ytThumb, type PlayerStyle, type StreamEntry } from "@/lib/types";
 import { FieldLabel, FilePick } from "@/components/admin/shared";
 
 /** Built-in preset — hamesha library ch dikhega (jadon tak khud add nahi kitta) */
@@ -48,6 +48,9 @@ export default function SettingsTab() {
   const [singerName, setSingerName] = useState("");
   const [singerUrl, setSingerUrl] = useState("");
   const [singerUploading, setSingerUploading] = useState(false);
+
+  // seva / donation QR upload
+  const [qrUploading, setQrUploading] = useState(false);
 
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -216,6 +219,71 @@ export default function SettingsTab() {
       await putSettings({ playerStyle: JSON.stringify(next) }, "🎨 Button di setting save ho gayi!");
     } catch {
       toast({ title: "Save nahi hoya", variant: "destructive" });
+    }
+  };
+
+  // ── Seva / Donation ──
+  const saveSeva = async () => {
+    const upi = (settings.donationUpi || "").trim();
+    const qr = (settings.donationQr || "").trim();
+    if (!upi && !qr) {
+      toast({ title: "UPI ID pao ja QR lagao — nahi ta site te button nahi dikhega", variant: "destructive" });
+      return;
+    }
+    try {
+      await putSettings(
+        { donationUpi: upi, donationNote: (settings.donationNote || "").trim() },
+        "💗 Seva di jaankari save ho gayi!"
+      );
+    } catch {
+      toast({ title: "Save nahi hoya", variant: "destructive" });
+    }
+  };
+
+  // QR browser ch resize hoke data URL — Vercel-safe (koi server upload nahi)
+  const uploadQr = async (f: File) => {
+    setQrUploading(true);
+    try {
+      const dataUrl = await fileToDataUrl(f, 800, 0.85);
+      await putSettings({ donationQr: dataUrl }, "💚 Seva QR jud gayi — site te Seva button lag gaya!");
+    } catch (e) {
+      toast({ title: "QR upload nahi hoi", description: e instanceof Error ? e.message : "", variant: "destructive" });
+    } finally {
+      setQrUploading(false);
+    }
+  };
+
+  const clearQr = async () => {
+    try {
+      await putSettings({ donationQr: "" }, "🗑️ Seva QR hata ditti");
+    } catch {
+      toast({ title: "Nahi hoya", variant: "destructive" });
+    }
+  };
+
+  // ── ON AIR video (YouTube) ──
+  const saveOnAirVideo = async () => {
+    const url = (settings.onAirVideo || "").trim();
+    if (url && !ytId(url)) {
+      toast({ title: "Eh YouTube link nahi lagda", description: "Poora link pao — youtu.be/... ja youtube.com/watch?v=...", variant: "destructive" });
+      return;
+    }
+    try {
+      await putSettings(
+        { onAirVideo: url },
+        url ? "📺 Video ON AIR NOW card ch lag gaya!" : "📺 Video hata ditta"
+      );
+    } catch {
+      toast({ title: "Save nahi hoya", variant: "destructive" });
+    }
+  };
+
+  const clearOnAirVideo = async () => {
+    try {
+      await putSettings({ onAirVideo: "" }, "📺 Video hata ditta — purana text design wapis");
+      setSettings((s) => ({ ...s, onAirVideo: "" }));
+    } catch {
+      toast({ title: "Nahi hoya", variant: "destructive" });
     }
   };
 
@@ -599,6 +667,96 @@ export default function SettingsTab() {
             💡 Rang chuno te foran save ho jauga — site te vikh jauga. Kisi rang nu hatuna hove ta osde nadd ✕ dabao.
           </p>
         </div>
+      </div>
+
+      {/* ── Seva / Donation — UPI QR + ID ── */}
+      <div className="rounded-2xl border border-emerald-400/25 bg-[oklch(0.21_0.018_60)] p-5" data-testid="donation-settings">
+        <h3 className="mb-2 flex items-center gap-2 text-base font-bold text-amber-100">
+          💗 Seva / Donation Settings
+          <span className="text-xs font-normal text-amber-100/50">(navbar te green button lagda)</span>
+        </h3>
+        <p className="mb-3 text-xs text-amber-100/60">
+          UPI ID ja QR pao — listeners nu site te <b className="text-emerald-300">Seva</b> button dikhega, click karke QR scan karan ja UPI ID naal support kar sakange. Dono khaali = button site te nahi dikhega.
+        </p>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <FieldLabel>Tuhadi UPI ID</FieldLabel>
+            <Input
+              value={settings.donationUpi || ""}
+              onChange={(e) => setSettings((s) => ({ ...s, donationUpi: e.target.value }))}
+              placeholder="jiven: name@okhdfcbank ja name@paytm"
+              data-testid="donation-upi"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel>Chhota message (optional)</FieldLabel>
+            <Input
+              value={settings.donationNote || ""}
+              onChange={(e) => setSettings((s) => ({ ...s, donationNote: e.target.value }))}
+              placeholder="jiven: Radio chaldi rakhn lyi seva karo"
+            />
+          </div>
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+          <div className="space-y-1.5">
+            <FieldLabel>UPI QR photo (optional — GPay/PhonePe/Paytm ton download karo)</FieldLabel>
+            <FilePick accept="image/*" fileName={qrUploading ? "upload ho rahi hai..." : undefined} onChange={(f) => { if (f) uploadQr(f); }} />
+          </div>
+          {settings.donationQr && (
+            <div className="flex items-center gap-2 sm:justify-end">
+              <img src={settings.donationQr} alt="Seva QR preview" className="h-16 w-16 rounded-lg border border-emerald-400/40 bg-white object-contain p-0.5" />
+              <Button size="icon" variant="ghost" aria-label="Seva QR hatao" onClick={clearQr} className="h-8 w-8 text-red-300 hover:bg-red-400/15">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+        {qrUploading && (
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-300">
+            <Loader2 className="h-3 w-3 animate-spin" /> QR upload ho rahi hai...
+          </p>
+        )}
+        <p className="mt-2 text-xs text-amber-100/50">
+          💡 QR kithon lavni? GPay/PhonePe/Paytm app ch apna UPI QR vekho te ohda screenshot le lo — oh vi chalegi. QR turant save ho jaugi.
+        </p>
+        <Button onClick={saveSeva} variant="outline" data-testid="donation-save" className="mt-3 border-emerald-400/40 text-emerald-300">
+          <Save className="mr-1 h-4 w-4" /> Seva info save karo
+        </Button>
+      </div>
+
+      {/* ── ON AIR NOW card ch YouTube video ── */}
+      <div className="rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)] p-5" data-testid="onair-video-settings">
+        <h3 className="mb-2 flex items-center gap-2 text-base font-bold text-amber-100">
+          📺 ON AIR NOW ch Video
+          <span className="text-xs font-normal text-amber-100/50">(YouTube)</span>
+        </h3>
+        <p className="mb-3 text-xs text-amber-100/60">
+          YouTube da link pao — hero de <b className="text-amber-300">ON AIR NOW</b> card ch video da thumbnail lag jauga, listener click kare te video chal jaugegi. Khaali rakho ta purana text design dikhega.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+          <Input
+            value={settings.onAirVideo || ""}
+            onChange={(e) => setSettings((s) => ({ ...s, onAirVideo: e.target.value }))}
+            placeholder="https://youtu.be/... ja youtube.com/watch?v=..."
+            inputMode="url"
+            data-testid="onair-video-input"
+          />
+          <div className="flex gap-2">
+            <Button onClick={saveOnAirVideo} variant="outline" data-testid="onair-video-save" className="border-amber-400/40 text-amber-200">
+              <Save className="mr-1 h-4 w-4" /> Save karo
+            </Button>
+            {settings.onAirVideo && (
+              <Button onClick={clearOnAirVideo} variant="ghost" aria-label="ON AIR video hatao" className="text-red-300 hover:bg-red-400/15">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+        {ytThumb(settings.onAirVideo || "") && (
+          <img src={ytThumb(settings.onAirVideo || "") || ""} alt="Video thumbnail preview" className="mt-2 h-24 w-40 rounded-lg border border-amber-400/30 object-cover" />
+        )}
       </div>
 
       <div className="rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)] p-5">
