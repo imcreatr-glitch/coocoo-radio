@@ -93,7 +93,7 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
                 style={
                   liveStateColor
                     ? { border: `4px solid ${liveStateColor}`, boxShadow: `0 0 22px ${liveStateColor}80` }
-                    : { border: "1px solid rgba(251,191,36,0.3)" }
+                    : { border: "1px solid rgba(var(--amb-rgb),0.3)" }
                 }
               >
                 <img src={settings.liveImage} alt={settings.liveTitle || "Live"} className="h-full w-full object-cover" />
@@ -128,7 +128,7 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
               const ringStyle = stateColor
                 ? { border: `4px solid ${stateColor}`, boxShadow: `0 0 22px ${stateColor}80` }
                 : img
-                  ? { border: "1px solid rgba(251,191,36,0.4)" }
+                  ? { border: "1px solid rgba(var(--amb-rgb),0.4)" }
                   : undefined;
               return (
                 <button
@@ -246,7 +246,7 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
                     <span className="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-600/90 text-white shadow-[0_4px_24px_rgba(220,38,38,0.6)] transition group-hover:scale-110">
                       <Play className="ml-1 h-7 w-7" />
                     </span>
-                    <span className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-200 backdrop-blur-sm">
+                    <span className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white backdrop-blur-sm">
                       <Play className="h-3 w-3" /> Video chalao
                     </span>
                   </button>
