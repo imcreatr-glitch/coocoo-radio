@@ -250,7 +250,7 @@ export default function Rooster({ className = "", autoCrowEverySec = 1800 }: Roo
 
       {/* Morning hint chip */}
       {!bubble && morning && (
-        <div className="pointer-events-none absolute -top-8 left-[-6px] w-max rounded-full border border-amber-400/40 bg-black/60 px-3 py-1 text-[11px] font-semibold tracking-wide text-amber-300 backdrop-blur">
+        <div className="pointer-events-none absolute -top-8 left-[-6px] w-max rounded-full border border-amber-400/40 bg-black/60 px-3 py-1 text-[11px] font-semibold tracking-wide text-white/90 backdrop-blur">
           🌅 Saver hoi — murga jaag gaya!
         </div>
       )}
