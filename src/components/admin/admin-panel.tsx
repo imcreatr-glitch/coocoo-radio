@@ -119,7 +119,7 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
           <div className="flex min-h-[70vh] items-center justify-center" data-testid="admin-login">
             <div className="w-full max-w-sm rounded-2xl border border-amber-400/25 bg-[color:var(--bg-card)] p-7 shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
               <div className="mb-6 text-center">
-                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 text-2xl shadow-[0_8px_24px_rgba(245,158,11,0.4)]">
+                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 text-2xl shadow-[0_8px_24px_rgba(var(--amb-rgb),0.4)]">
                   🐓
                 </div>
                 <h3 className="text-lg font-bold text-amber-50">Admin Login</h3>
