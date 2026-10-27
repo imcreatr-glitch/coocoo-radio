@@ -17,6 +17,7 @@ const KEYS = [
   "donationNote",
   "donationQr",
   "onAirVideo",
+  "theme",
 ] as const;
 
 export async function GET() {
@@ -38,6 +39,7 @@ export async function GET() {
     donationNote: map.donationNote || "",
     donationQr: map.donationQr || "",
     onAirVideo: map.onAirVideo || "",
+    theme: map.theme || "",
   });
 }
 
