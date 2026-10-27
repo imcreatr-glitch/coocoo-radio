@@ -78,9 +78,9 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[70] overflow-y-auto bg-[oklch(0.165_0.012_60)]" data-testid="admin-panel">
+    <div className="fixed inset-0 z-[70] overflow-y-auto bg-[color:var(--bg-base)]" data-testid="admin-panel">
       {/* Admin header */}
-      <header className="sticky top-0 z-10 border-b border-amber-400/20 bg-[oklch(0.17_0.015_60)]/95 backdrop-blur">
+      <header className="sticky top-0 z-10 border-b border-amber-400/20 bg-[color:var(--bg-deep)]/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-orange-600 text-lg">
@@ -117,7 +117,7 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
         ) : !authed ? (
           /* ---------- LOGIN ---------- */
           <div className="flex min-h-[70vh] items-center justify-center" data-testid="admin-login">
-            <div className="w-full max-w-sm rounded-2xl border border-amber-400/25 bg-[oklch(0.21_0.018_60)] p-7 shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
+            <div className="w-full max-w-sm rounded-2xl border border-amber-400/25 bg-[color:var(--bg-card)] p-7 shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
               <div className="mb-6 text-center">
                 <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 text-2xl shadow-[0_8px_24px_rgba(245,158,11,0.4)]">
                   🐓
