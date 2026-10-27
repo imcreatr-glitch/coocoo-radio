@@ -34,7 +34,7 @@ export default function Navbar({
     <header className="sticky top-0 z-40 border-b border-amber-400/15 bg-[color:var(--bg-base)]/85 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-600 text-xl shadow-[0_4px_16px_rgba(245,158,11,0.4)]">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-600 text-xl shadow-[0_4px_16px_rgba(var(--amb-rgb),0.4)]">
             🐓
           </div>
           <div className="min-w-0">
