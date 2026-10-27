@@ -91,6 +91,7 @@ export const THEME_PRESETS: { key: string; label: string; dot: string }[] = [
   { key: "emerald", label: "Emerald Green", dot: "#34d399" },
   { key: "violet", label: "Royal Purple", dot: "#a78bfa" },
   { key: "crimson", label: "Royal Red", dot: "#fb7185" },
+  { key: "mono", label: "Black & White", dot: "#d4d4d4" },
 ];
 
 /** Parse saved theme — unknown/empty = sunrise (never throws) */
