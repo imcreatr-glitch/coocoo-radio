@@ -115,7 +115,7 @@ export default function PlayerBar() {
             artistImg
               ? barRingColor
                 ? { border: `2px solid ${barRingColor}`, boxShadow: `0 0 10px ${barRingColor}80` }
-                : { border: "1px solid rgba(251,191,36,0.4)" }
+                : { border: "1px solid rgba(var(--amb-rgb),0.4)" }
               : undefined
           }
         >
