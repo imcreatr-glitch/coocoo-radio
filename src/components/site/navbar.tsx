@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { Lock, Radio, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import DonationButton from "@/components/site/donation";
 
 export default function Navbar({
   stationName,
@@ -32,7 +31,7 @@ export default function Navbar({
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-amber-400/15 bg-[oklch(0.165_0.012_60)]/85 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-amber-400/15 bg-[color:var(--bg-base)]/85 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-600 text-xl shadow-[0_4px_16px_rgba(245,158,11,0.4)]">
@@ -54,7 +53,6 @@ export default function Navbar({
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <DonationButton />
           <span
             className="hidden rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-1.5 font-mono text-sm tabular-nums text-amber-300 md:block"
             aria-label="current time"
