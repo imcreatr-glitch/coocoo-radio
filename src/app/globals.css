@@ -209,10 +209,10 @@ body {
   animation: bubble-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
-/* Glow pulse for hero play button */
+/* Glow pulse for hero play button (accent color follows active theme via --amb-rgb) */
 @keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 22px 2px rgba(245, 158, 11, 0.45); }
-  50% { box-shadow: 0 0 44px 8px rgba(245, 158, 11, 0.65); }
+  0%, 100% { box-shadow: 0 0 22px 2px rgba(var(--amb-rgb), 0.45); }
+  50% { box-shadow: 0 0 44px 8px rgba(var(--amb-rgb), 0.65); }
 }
 .glow-pulse {
   animation: glow-pulse 2.2s ease-in-out infinite;
@@ -232,15 +232,15 @@ body {
   height: 8px;
 }
 .nice-scroll::-webkit-scrollbar-track {
-  background: rgba(245, 158, 11, 0.06);
+  background: rgba(var(--amb-rgb), 0.06);
   border-radius: 8px;
 }
 .nice-scroll::-webkit-scrollbar-thumb {
-  background: rgba(245, 158, 11, 0.35);
+  background: rgba(var(--amb-rgb), 0.35);
   border-radius: 8px;
 }
 .nice-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(245, 158, 11, 0.55);
+  background: rgba(var(--amb-rgb), 0.55);
 }
 
 /* Grain-free subtle hero gradient */
@@ -252,15 +252,16 @@ body {
     linear-gradient(180deg, var(--hero-from), var(--hero-to));
 }
 
-/* Section heading ornament */
+/* Section heading ornament (accent color follows active theme) */
 .section-title-line {
-  background: linear-gradient(90deg, rgba(245, 158, 11, 0.7), rgba(245, 158, 11, 0));
+  background: linear-gradient(90deg, rgba(var(--amb-rgb), 0.7), rgba(var(--amb-rgb), 0));
   height: 2px;
 }
 
 
 /* ---------- Theme system (admin-switchable) ---------- */
 :root {
+  --amb-rgb: 245, 158, 11; /* accent RGB triplet — shadows/glows use rgba(var(--amb-rgb), alpha) */
   --glow-a: rgba(245, 158, 11, 0.16);
   --glow-b: rgba(239, 68, 68, 0.12);
   --glow-c: rgba(245, 158, 11, 0.08);
@@ -511,4 +512,71 @@ html[data-theme="crimson"].dark {
   --border: oklch(0.55 0.06 25) / 22%;
   --input: oklch(0.55 0.06 25) / 25%;
   --ring: oklch(0.775 0.16 25);
+}
+
+/* Accent RGB triplets — shadow/glow utilities follow the active theme */
+html[data-theme="royal"] { --amb-rgb: 99, 102, 241; }
+html[data-theme="emerald"] { --amb-rgb: 52, 211, 153; }
+html[data-theme="violet"] { --amb-rgb: 167, 139, 250; }
+html[data-theme="crimson"] { --amb-rgb: 251, 113, 133; }
+
+/* Black & White — pure monochrome, koi rang nahi (sirf kaala, safaid te gray) */
+html[data-theme="mono"] {
+  --amb-rgb: 255, 255, 255;
+  --color-amber-50: oklch(0.987 0 0);
+  --color-amber-100: oklch(0.962 0 0);
+  --color-amber-200: oklch(0.924 0 0);
+  --color-amber-300: oklch(0.879 0 0);
+  --color-amber-400: oklch(0.828 0 0);
+  --color-amber-500: oklch(0.769 0 0);
+  --color-amber-600: oklch(0.666 0 0);
+  --color-amber-700: oklch(0.555 0 0);
+  --color-amber-800: oklch(0.473 0 0);
+  --color-amber-900: oklch(0.414 0 0);
+  --color-amber-950: oklch(0.279 0 0);
+  --color-orange-50: oklch(0.98 0 0);
+  --color-orange-100: oklch(0.954 0 0);
+  --color-orange-200: oklch(0.901 0 0);
+  --color-orange-300: oklch(0.837 0 0);
+  --color-orange-400: oklch(0.75 0 0);
+  --color-orange-500: oklch(0.705 0 0);
+  --color-orange-600: oklch(0.646 0 0);
+  --color-orange-700: oklch(0.568 0 0);
+  --color-orange-800: oklch(0.47 0 0);
+  --color-orange-900: oklch(0.408 0 0);
+  --color-orange-950: oklch(0.266 0 0);
+  --glow-a: rgba(255, 255, 255, 0.10);
+  --glow-b: rgba(255, 255, 255, 0.07);
+  --glow-c: rgba(255, 255, 255, 0.05);
+  --hero-from: oklch(0.19 0 0);
+  --hero-to: oklch(0.165 0 0);
+  --bg-base: oklch(0.165 0 0);
+  --bg-footer: oklch(0.15 0 0);
+  --bg-deep: oklch(0.17 0 0);
+  --bg-panel: oklch(0.185 0 0);
+  --bg-card: oklch(0.21 0 0);
+  --bg-alt: oklch(0.24 0 0);
+  --bg-grad-end: oklch(0.19 0 0);
+  --bg-grad-start: oklch(0.24 0 0);
+  --bg-via: oklch(0.2 0 0);
+}
+
+html[data-theme="mono"].dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.97 0 0);
+  --card: oklch(0.185 0 0);
+  --card-foreground: oklch(0.97 0 0);
+  --popover: oklch(0.17 0 0);
+  --popover-foreground: oklch(0.97 0 0);
+  --primary: oklch(0.85 0 0);
+  --primary-foreground: oklch(0.145 0 0);
+  --secondary: oklch(0.25 0 0);
+  --secondary-foreground: oklch(0.97 0 0);
+  --muted: oklch(0.25 0 0);
+  --muted-foreground: oklch(0.72 0 0);
+  --accent: oklch(0.28 0 0);
+  --accent-foreground: oklch(0.97 0 0);
+  --border: oklch(0.55 0 0) / 22%;
+  --input: oklch(0.55 0 0) / 25%;
+  --ring: oklch(0.85 0 0);
 }
