@@ -12,7 +12,7 @@ import { usePlayer } from "@/lib/store";
 import { adminFetch } from "@/lib/client-auth";
 import { fileToDataUrl } from "@/lib/image-client";
 import type { StationSettings } from "@/lib/types";
-import { parsePlayerStyle, parseStreamLibrary, ytId, ytThumb, type PlayerStyle, type StreamEntry } from "@/lib/types";
+import { parsePlayerStyle, parseStreamLibrary, parseTheme, THEME_PRESETS, ytId, ytThumb, type PlayerStyle, type StreamEntry } from "@/lib/types";
 import { FieldLabel, FilePick } from "@/components/admin/shared";
 
 /** Built-in preset — hamesha library ch dikhega (jadon tak khud add nahi kitta) */
@@ -48,9 +48,6 @@ export default function SettingsTab() {
   const [singerName, setSingerName] = useState("");
   const [singerUrl, setSingerUrl] = useState("");
   const [singerUploading, setSingerUploading] = useState(false);
-
-  // seva / donation QR upload
-  const [qrUploading, setQrUploading] = useState(false);
 
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -222,42 +219,15 @@ export default function SettingsTab() {
     }
   };
 
-  // ── Seva / Donation ──
-  const saveSeva = async () => {
-    const upi = (settings.donationUpi || "").trim();
-    const qr = (settings.donationQr || "").trim();
-    if (!upi && !qr) {
-      toast({ title: "UPI ID pao ja QR lagao — nahi ta site te button nahi dikhega", variant: "destructive" });
-      return;
-    }
+  // ── Site theme (professional color presets) ──
+  const saveTheme = async (key: string) => {
     try {
       await putSettings(
-        { donationUpi: upi, donationNote: (settings.donationNote || "").trim() },
-        "💗 Seva di jaankari save ho gayi!"
+        { theme: key },
+        key === "sunrise" ? "🌅 Sunrise Gold theme lag gaya!" : "🎨 Nava theme lag gaya — poori site da rang badal gaya!"
       );
     } catch {
-      toast({ title: "Save nahi hoya", variant: "destructive" });
-    }
-  };
-
-  // QR browser ch resize hoke data URL — Vercel-safe (koi server upload nahi)
-  const uploadQr = async (f: File) => {
-    setQrUploading(true);
-    try {
-      const dataUrl = await fileToDataUrl(f, 800, 0.85);
-      await putSettings({ donationQr: dataUrl }, "💚 Seva QR jud gayi — site te Seva button lag gaya!");
-    } catch (e) {
-      toast({ title: "QR upload nahi hoi", description: e instanceof Error ? e.message : "", variant: "destructive" });
-    } finally {
-      setQrUploading(false);
-    }
-  };
-
-  const clearQr = async () => {
-    try {
-      await putSettings({ donationQr: "" }, "🗑️ Seva QR hata ditti");
-    } catch {
-      toast({ title: "Nahi hoya", variant: "destructive" });
+      toast({ title: "Theme nahi badla", variant: "destructive" });
     }
   };
 
@@ -322,7 +292,7 @@ export default function SettingsTab() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)] p-5">
+      <div className="rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)] p-5">
         <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-amber-100">
           <Radio className="h-4.5 w-4.5 text-amber-400" /> Station Settings
         </h3>
@@ -445,7 +415,7 @@ export default function SettingsTab() {
       </div>
 
       {/* ── Gurbani Library — ek click ON/OFF ── */}
-      <div className="rounded-2xl border border-red-400/25 bg-[oklch(0.21_0.018_60)] p-5" data-testid="gurbani-library">
+      <div className="rounded-2xl border border-red-400/25 bg-[color:var(--bg-card)] p-5" data-testid="gurbani-library">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-base font-bold text-amber-100">
             📺 Gurbani / Live Library <span className="text-xs font-normal text-amber-100/50">(ek click ON/OFF)</span>
@@ -522,7 +492,7 @@ export default function SettingsTab() {
       </div>
 
       {/* ── Singer Photos — stamp-size image with now-playing ── */}
-      <div className="rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)] p-5" data-testid="singer-photos">
+      <div className="rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)] p-5" data-testid="singer-photos">
         <h3 className="mb-2 flex items-center gap-2 text-base font-bold text-amber-100">
           🧑‍🎤 Singer Photos <span className="text-xs font-normal text-amber-100/50">(song chaldi vakat now-playing naal dikhegi)</span>
         </h3>
@@ -586,7 +556,7 @@ export default function SettingsTab() {
       </div>
 
       {/* ── Play/Pause Button di Setting — image/circle + rang ── */}
-      <div className="rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)] p-5" data-testid="player-style">
+      <div className="rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)] p-5" data-testid="player-style">
         <h3 className="mb-2 flex items-center gap-2 text-base font-bold text-amber-100">
           <Palette className="h-4.5 w-4.5 text-amber-400" /> Chalao/Roko Button di Setting
           <span className="text-xs font-normal text-amber-100/50">(now-playing vali image ja circle)</span>
@@ -669,65 +639,40 @@ export default function SettingsTab() {
         </div>
       </div>
 
-      {/* ── Seva / Donation — UPI QR + ID ── */}
-      <div className="rounded-2xl border border-emerald-400/25 bg-[oklch(0.21_0.018_60)] p-5" data-testid="donation-settings">
+      {/* ── Site Theme — professional color presets ── */}
+      <div className="rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)] p-5" data-testid="theme-settings">
         <h3 className="mb-2 flex items-center gap-2 text-base font-bold text-amber-100">
-          💗 Seva / Donation Settings
-          <span className="text-xs font-normal text-amber-100/50">(navbar te green button lagda)</span>
+          🎨 Site da Rang Theme
+          <span className="text-xs font-normal text-amber-100/50">(professional color templates)</span>
         </h3>
         <p className="mb-3 text-xs text-amber-100/60">
-          UPI ID ja QR pao — listeners nu site te <b className="text-emerald-300">Seva</b> button dikhega, click karke QR scan karan ja UPI ID naal support kar sakange. Dono khaali = button site te nahi dikhega.
+          Ik click ch poori site da rang badal jauuga — navbar, hero, cards, sab kuch. Jo theme pasand aave osde button dabao, foran save ho jauga.
         </p>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <FieldLabel>Tuhadi UPI ID</FieldLabel>
-            <Input
-              value={settings.donationUpi || ""}
-              onChange={(e) => setSettings((s) => ({ ...s, donationUpi: e.target.value }))}
-              placeholder="jiven: name@okhdfcbank ja name@paytm"
-              data-testid="donation-upi"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <FieldLabel>Chhota message (optional)</FieldLabel>
-            <Input
-              value={settings.donationNote || ""}
-              onChange={(e) => setSettings((s) => ({ ...s, donationNote: e.target.value }))}
-              placeholder="jiven: Radio chaldi rakhn lyi seva karo"
-            />
-          </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {THEME_PRESETS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => saveTheme(t.key)}
+              data-testid={`theme-${t.key}`}
+              className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${
+                parseTheme(settings.theme) === t.key
+                  ? "border-amber-400 bg-amber-400/10"
+                  : "border-amber-400/20 bg-black/25 hover:border-amber-400/40"
+              }`}
+            >
+              <span className="h-5 w-5 shrink-0 rounded-full border-2 border-white/30" style={{ backgroundColor: t.dot }} />
+              <span className="text-sm font-bold text-amber-50">{t.label}</span>
+              {parseTheme(settings.theme) === t.key && (
+                <Badge className="ml-auto shrink-0 border-0 bg-amber-400 text-[10px] font-bold text-black">LAGG RYA</Badge>
+              )}
+            </button>
+          ))}
         </div>
-
-        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
-          <div className="space-y-1.5">
-            <FieldLabel>UPI QR photo (optional — GPay/PhonePe/Paytm ton download karo)</FieldLabel>
-            <FilePick accept="image/*" fileName={qrUploading ? "upload ho rahi hai..." : undefined} onChange={(f) => { if (f) uploadQr(f); }} />
-          </div>
-          {settings.donationQr && (
-            <div className="flex items-center gap-2 sm:justify-end">
-              <img src={settings.donationQr} alt="Seva QR preview" className="h-16 w-16 rounded-lg border border-emerald-400/40 bg-white object-contain p-0.5" />
-              <Button size="icon" variant="ghost" aria-label="Seva QR hatao" onClick={clearQr} className="h-8 w-8 text-red-300 hover:bg-red-400/15">
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-        </div>
-        {qrUploading && (
-          <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-300">
-            <Loader2 className="h-3 w-3 animate-spin" /> QR upload ho rahi hai...
-          </p>
-        )}
-        <p className="mt-2 text-xs text-amber-100/50">
-          💡 QR kithon lavni? GPay/PhonePe/Paytm app ch apna UPI QR vekho te ohda screenshot le lo — oh vi chalegi. QR turant save ho jaugi.
-        </p>
-        <Button onClick={saveSeva} variant="outline" data-testid="donation-save" className="mt-3 border-emerald-400/40 text-emerald-300">
-          <Save className="mr-1 h-4 w-4" /> Seva info save karo
-        </Button>
       </div>
 
       {/* ── ON AIR NOW card ch YouTube video ── */}
-      <div className="rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)] p-5" data-testid="onair-video-settings">
+      <div className="rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)] p-5" data-testid="onair-video-settings">
         <h3 className="mb-2 flex items-center gap-2 text-base font-bold text-amber-100">
           📺 ON AIR NOW ch Video
           <span className="text-xs font-normal text-amber-100/50">(YouTube)</span>
@@ -759,7 +704,7 @@ export default function SettingsTab() {
         )}
       </div>
 
-      <div className="rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)] p-5">
+      <div className="rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)] p-5">
         <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-amber-100">
           <KeyRound className="h-4.5 w-4.5 text-amber-400" /> Password Badlo
         </h3>
