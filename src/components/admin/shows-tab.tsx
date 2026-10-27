@@ -88,7 +88,7 @@ export default function ShowsTab() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)] p-5">
+      <div className="rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)] p-5">
         <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-amber-100">
           <Tv className="h-4.5 w-4.5 text-amber-400" /> Nava Show Schedule Karo
         </h3>
@@ -147,7 +147,7 @@ export default function ShowsTab() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)] p-5">
+      <div className="rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)] p-5">
         <h3 className="mb-3 text-base font-bold text-amber-100">Saare Shows ({shows.length})</h3>
         {loading ? (
           <EmptyRow text="Load ho raha hai..." />
