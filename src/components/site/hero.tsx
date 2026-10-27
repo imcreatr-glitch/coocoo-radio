@@ -200,7 +200,7 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
           transition={{ duration: 0.6, delay: 0.15 }}
           className="flex items-center"
         >
-          <div className="relative w-full overflow-hidden rounded-2xl border border-amber-400/25 bg-gradient-to-br from-[oklch(0.24_0.03_60)] to-[oklch(0.19_0.02_60)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+          <div className="relative w-full overflow-hidden rounded-2xl border border-amber-400/25 bg-gradient-to-br from-[color:var(--bg-grad-start)] to-[color:var(--bg-grad-end)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="live-dot h-2.5 w-2.5 rounded-full bg-red-500" />
