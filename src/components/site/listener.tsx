@@ -54,7 +54,7 @@ export default function ListenerSection() {
   };
 
   return (
-    <section id="listener" className="border-b border-amber-400/10 bg-[oklch(0.165_0.012_60)]">
+    <section id="listener" className="border-b border-amber-400/10 bg-[color:var(--bg-base)]">
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
         <SectionTitle
           title="ਸਰੋਤਿਆਂ ਦੀ ਆਵਾਜ਼ • Listener Corner"
@@ -68,7 +68,7 @@ export default function ListenerSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.4 }}
-            className="rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)] p-5"
+            className="rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)] p-5"
           >
             <h3 className="mb-1 flex items-center gap-2 text-base font-bold text-amber-100">
               <MessageSquareHeart className="h-4.5 w-4.5 text-amber-400" /> Request ya Message Bhejo
