@@ -214,7 +214,7 @@ export default function LiveChat() {
 
   return (
     <div
-      className="flex h-full flex-col overflow-hidden rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)]"
+      className="flex h-full flex-col overflow-hidden rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)]"
       data-testid="live-chat"
     >
       {/* header */}
