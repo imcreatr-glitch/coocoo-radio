@@ -59,10 +59,11 @@ export interface StationSettings {
   streamLibrary?: string; // JSON array of StreamEntry — admin's saved live streams
   artistImages?: string; // JSON map singerName -> stamp-size photo URL (shown with now-playing)
   playerStyle?: string; // JSON PlayerStyle — now-playing button: image/circle + play/pause colors
-  donationUpi?: string; // UPI ID — Seva/Donation button (dono khali = button site te nadlo)
+  donationUpi?: string; // UPI ID — Seva/Donation (feature removed from UI; fields kept for DB compat)
   donationNote?: string; // optional message inside donation dialog
   donationQr?: string; // data URL — UPI QR image in donation dialog
   onAirVideo?: string; // YouTube URL — ON AIR NOW card ch video (khaali = text design)
+  theme?: string; // site color theme key (sunrise | royal | emerald | violet | crimson)
 }
 
 export const DEFAULT_SETTINGS: StationSettings = {
@@ -80,7 +81,23 @@ export const DEFAULT_SETTINGS: StationSettings = {
   donationNote: "",
   donationQr: "",
   onAirVideo: "",
+  theme: "",
 };
+
+/** Site color themes (admin-switchable, professional palettes) */
+export const THEME_PRESETS: { key: string; label: string; dot: string }[] = [
+  { key: "sunrise", label: "Sunrise Gold (Pehla)", dot: "#f59e0b" },
+  { key: "royal", label: "Royal Blue", dot: "#818cf8" },
+  { key: "emerald", label: "Emerald Green", dot: "#34d399" },
+  { key: "violet", label: "Royal Purple", dot: "#a78bfa" },
+  { key: "crimson", label: "Royal Red", dot: "#fb7185" },
+];
+
+/** Parse saved theme — unknown/empty = sunrise (never throws) */
+export function parseTheme(raw: string | undefined | null): string {
+  const v = (raw || "").trim();
+  return THEME_PRESETS.some((t) => t.key === v) ? v : "sunrise";
+}
 
 /** Now-playing play/pause button style (admin-configurable) */
 export interface PlayerStyle {
