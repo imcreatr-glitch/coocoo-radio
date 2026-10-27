@@ -28,7 +28,7 @@ export default function Ticker() {
   const loop = [...headlines, ...headlines];
 
   return (
-    <div className="relative overflow-hidden border-y border-amber-400/20 bg-gradient-to-r from-orange-950 via-[oklch(0.2_0.03_55)] to-orange-950">
+    <div className="relative overflow-hidden border-y border-amber-400/20 bg-gradient-to-r from-orange-950 via-[color:var(--bg-via)] to-orange-950">
       <div className="flex items-stretch">
         <div className="z-10 flex shrink-0 items-center gap-2 bg-red-600 px-3 py-2 sm:px-4">
           <Megaphone className="h-4 w-4 text-white" />
