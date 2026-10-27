@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Lock, Radio, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import DonationButton from "@/components/site/donation";
 
 export default function Navbar({
   stationName,
@@ -53,6 +54,7 @@ export default function Navbar({
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          <DonationButton />
           <span
             className="hidden rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-1.5 font-mono text-sm tabular-nums text-amber-300 md:block"
             aria-label="current time"
