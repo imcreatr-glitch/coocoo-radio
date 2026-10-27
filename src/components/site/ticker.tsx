@@ -28,18 +28,20 @@ export default function Ticker() {
   const loop = [...headlines, ...headlines];
 
   return (
-    <div className="relative overflow-hidden border-y border-amber-400/20 bg-gradient-to-r from-orange-950 via-[color:var(--bg-via)] to-orange-950">
+    <div className="relative overflow-hidden border-y border-yellow-500/40 bg-yellow-400">
       <div className="flex items-stretch">
-        <div className="z-10 flex shrink-0 items-center gap-2 bg-red-600 px-3 py-2 sm:px-4">
-          <Megaphone className="h-4 w-4 text-white" />
-          <span className="hidden text-xs font-bold uppercase tracking-wider text-white sm:inline">
-            Taza Khabran
+        {/* Breaking News label — dark black background, yellow megaphone + white text */}
+        <div className="z-10 flex shrink-0 items-center gap-2 bg-zinc-950 px-3 py-2 sm:px-4">
+          <Megaphone className="h-4 w-4 text-yellow-400" />
+          <span className="hidden text-xs font-extrabold uppercase tracking-wider text-white sm:inline">
+            Breaking News
           </span>
         </div>
+        {/* Scrolling headlines — yellow background, dark text for max contrast */}
         <div className="relative flex-1 overflow-hidden py-2">
           <div className="marquee-track gap-10 pl-6">
             {loop.map((h, i) => (
-              <span key={i} className="font-gur text-sm text-amber-100/90">
+              <span key={i} className="font-gur text-sm font-semibold text-zinc-900">
                 📰 {h}
               </span>
             ))}
