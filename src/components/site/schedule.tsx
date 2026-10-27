@@ -107,7 +107,7 @@ export default function ScheduleSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-40px" }}
                 transition={{ duration: 0.4, delay: i * 0.05 }}
-                className={`group overflow-hidden rounded-2xl border bg-[oklch(0.21_0.018_60)] transition-all hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(245,158,11,0.18)] ${
+                className={`group overflow-hidden rounded-2xl border bg-[color:var(--bg-card)] transition-all hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(245,158,11,0.18)] ${
                   onAir ? "border-red-500/60 shadow-[0_0_24px_rgba(239,68,68,0.25)]" : "border-amber-400/15"
                 }`}
                 data-testid={`show-card-${i}`}
@@ -181,7 +181,7 @@ export default function ScheduleSection() {
 
       {/* YouTube player dialog */}
       <Dialog open={!!active} onOpenChange={(o) => !o && setActive(null)}>
-        <DialogContent className="max-w-3xl border-amber-400/25 bg-[oklch(0.19_0.02_60)] p-3 sm:p-4">
+        <DialogContent className="max-w-3xl border-amber-400/25 bg-[color:var(--bg-grad-end)] p-3 sm:p-4">
           <DialogHeader className="px-1 pb-2">
             <DialogTitle className="font-gur text-left text-amber-50">{active?.title}</DialogTitle>
             <DialogDescription className="text-left font-mono text-xs text-amber-300/80">
