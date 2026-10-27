@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Pause, Play, Radio, Sunrise, Tv } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { usePlayer } from "@/lib/store";
-import { artistImageFor, isOnAir, parsePlayerStyle, type ShowItem } from "@/lib/types";
+import { artistImageFor, isOnAir, parsePlayerStyle, ytId, ytThumb, type ShowItem } from "@/lib/types";
 
 export function Equalizer({ playing, bars = 7, className = "" }: { playing: boolean; bars?: number; className?: string }) {
   const heights = useMemo(() => Array.from({ length: bars }, (_, i) => 0.35 + ((i * 37) % 65) / 100), [bars]);
@@ -28,6 +28,10 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
   const settings = usePlayer((s) => s.settings);
   const tracks = usePlayer((s) => s.tracks);
   const index = usePlayer((s) => s.index);
+
+  // ON AIR NOW card ch admin di YouTube video (thumbnail -> click -> autoplay embed)
+  const onAirVid = ytId(settings.onAirVideo || "");
+  const [vidPlay, setVidPlay] = useState(false);
 
   const onAir = useMemo(() => {
     const now = new Date();
@@ -211,6 +215,44 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
                 <span className="absolute inset-0 m-auto h-3 w-3 rounded-full bg-amber-950" />
               </div>
             </div>
+
+            {onAirVid && (
+              <div
+                className="relative overflow-hidden rounded-xl border border-amber-400/20 bg-black"
+                data-testid="onair-video"
+              >
+                {vidPlay ? (
+                  <iframe
+                    src={`https://www.youtube.com/embed/${onAirVid}?autoplay=1&rel=0&playsinline=1`}
+                    title="On Air video"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="aspect-video w-full"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setVidPlay(true)}
+                    aria-label="Video chalao"
+                    data-testid="onair-video-play"
+                    className="group relative block w-full cursor-pointer"
+                  >
+                    <img
+                      src={ytThumb(settings.onAirVideo || "") || ""}
+                      alt="On Air video thumbnail"
+                      className="aspect-video w-full object-cover"
+                    />
+                    <span className="absolute inset-0 bg-black/25 transition group-hover:bg-black/10" />
+                    <span className="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-600/90 text-white shadow-[0_4px_24px_rgba(220,38,38,0.6)] transition group-hover:scale-110">
+                      <Play className="ml-1 h-7 w-7" />
+                    </span>
+                    <span className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-200 backdrop-blur-sm">
+                      <Play className="h-3 w-3" /> Video chalao
+                    </span>
+                  </button>
+                )}
+              </div>
+            )}
 
             {onAir.length > 0 ? (
               <div className="mt-3 space-y-3" data-testid="on-air-card">
