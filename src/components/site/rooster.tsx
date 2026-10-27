@@ -140,6 +140,7 @@ export default function Rooster({ className = "", autoCrowEverySec = 1800 }: Roo
     if (!morning) return;
     const t = window.setTimeout(() => doCrow(interactedRef.current), 2200);
     return () => window.clearTimeout(t);
+     
   }, [morning]);
 
   // periodic morning crows
@@ -147,6 +148,7 @@ export default function Rooster({ className = "", autoCrowEverySec = 1800 }: Roo
     if (!morning) return;
     const t = window.setInterval(() => doCrow(interactedRef.current), autoCrowEverySec * 1000);
     return () => window.clearInterval(t);
+     
   }, [morning, autoCrowEverySec]);
 
   return (
@@ -157,7 +159,7 @@ export default function Rooster({ className = "", autoCrowEverySec = 1800 }: Roo
       {/* Speech bubble */}
       {bubble && (
         <div className="bubble-pop absolute bottom-[92%] left-[-6px] w-max max-w-[250px]">
-          <div className="relative rounded-2xl border-2 border-amber-400 bg-amber-50 px-4 py-2.5 shadow-[0_10px_40px_rgba(245,158,11,0.35)]">
+          <div className="relative rounded-2xl border-2 border-amber-400 bg-amber-50 px-4 py-2.5 shadow-[0_10px_40px_rgba(var(--amb-rgb),0.35)]">
             <p className="font-gur text-center text-[15px] font-bold leading-snug text-amber-950">
               {CROW_TEXT}
             </p>
