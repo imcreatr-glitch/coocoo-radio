@@ -39,7 +39,7 @@ export default function AdsSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: i * 0.06 }}
-                className="group relative overflow-hidden rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)] shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
+                className="group relative overflow-hidden rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)] shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
               >
                 <div className="relative aspect-[8/3] w-full overflow-hidden">
                   { }
@@ -82,7 +82,7 @@ export default function AdsSection() {
             return (
             <div
               key={ad.id}
-              className="overflow-hidden rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)] shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
+              className="overflow-hidden rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)] shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
             >
               <div className="relative aspect-video w-full bg-black">
                 {yt ? (
