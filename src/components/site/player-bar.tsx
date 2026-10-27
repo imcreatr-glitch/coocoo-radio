@@ -99,7 +99,7 @@ export default function PlayerBar() {
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-amber-400/25 bg-[oklch(0.17_0.015_60)]/95 backdrop-blur-md [padding-bottom:env(safe-area-inset-bottom)]"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-amber-400/25 bg-[color:var(--bg-deep)]/95 backdrop-blur-md [padding-bottom:env(safe-area-inset-bottom)]"
       data-testid="player-bar"
     >
       <div className="mx-auto flex h-[76px] max-w-7xl items-center gap-3 px-3 sm:gap-4 sm:px-6">
