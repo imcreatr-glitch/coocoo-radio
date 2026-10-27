@@ -23,7 +23,6 @@ export default function Footer() {
           </div>
 
           <nav aria-label="Footer sections" className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-amber-100/70">
-            <a href="#live" className="hover:text-amber-300">Live Studio</a>
             <a href="#schedule" className="hover:text-amber-300">Schedule</a>
             <a href="#news" className="hover:text-amber-300">News</a>
             <a href="#listener" className="hover:text-amber-300">Messages</a>
