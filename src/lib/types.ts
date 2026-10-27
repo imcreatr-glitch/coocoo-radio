@@ -91,12 +91,14 @@ export const THEME_PRESETS: { key: string; label: string; dot: string }[] = [
   { key: "emerald", label: "Emerald Green", dot: "#34d399" },
   { key: "violet", label: "Royal Purple", dot: "#a78bfa" },
   { key: "crimson", label: "Royal Red", dot: "#fb7185" },
-  { key: "mono", label: "Black & White", dot: "#d4d4d4" },
+  { key: "white", label: "Pure White (Safaid)", dot: "#ffffff" },
+  { key: "black", label: "Pure Black (Kaala)", dot: "#1a1a1a" },
 ];
 
-/** Parse saved theme — unknown/empty = sunrise (never throws) */
+/** Parse saved theme — unknown/empty = sunrise (never throws). "mono" = purana gray theme, hun black mannye */
 export function parseTheme(raw: string | undefined | null): string {
   const v = (raw || "").trim();
+  if (v === "mono") return "black";
   return THEME_PRESETS.some((t) => t.key === v) ? v : "sunrise";
 }
 
