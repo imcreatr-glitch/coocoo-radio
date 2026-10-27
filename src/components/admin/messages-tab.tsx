@@ -82,7 +82,7 @@ export default function MessagesTab() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-amber-400/20 bg-[oklch(0.21_0.018_60)] p-5">
+      <div className="rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)] p-5">
         <div className="mb-3 flex items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-base font-bold text-amber-100">
             <Inbox className="h-4.5 w-4.5 text-amber-400" /> Sarotian De Messages
