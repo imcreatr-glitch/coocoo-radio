@@ -321,7 +321,7 @@ export default function LiveChat() {
                 onKeyDown={(e) => e.key === "Enter" && send()}
                 placeholder="Apna message likho..."
                 maxLength={300}
-                className="border-amber-400/30 bg-black/40 text-amber-50"
+                className="border-amber-400/30 bg-black/30 text-amber-50"
                 data-testid="chat-input"
               />
               <Button
