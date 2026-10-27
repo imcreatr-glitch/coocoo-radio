@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Noto_Sans_Gurmukhi } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import InstallPrompt from "@/components/site/install-prompt";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,8 +25,23 @@ export const metadata: Metadata = {
   description:
     "24x7 live desi radio: Punjabi and English music, latest news, scheduled shows with YouTube videos, image + video ads — and a rooster that crows Coo coo kdooo every morning!",
   keywords: ["punjabi radio", "live radio 24x7", "desi radio", "coocoo radio", "bhangra", "news"],
+  manifest: "/manifest.webmanifest",
   icons: {
-    icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%90%93%3C/text%3E%3C/svg%3E",
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    title: "CooCoo Radio",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: {
+    telephone: false,
   },
   openGraph: {
     title: "CooCoo Radio 24x7",
@@ -36,6 +52,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#f59e0b",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 export default function RootLayout({
@@ -50,6 +69,8 @@ export default function RootLayout({
       >
         {children}
         <Toaster />
+        {/* PWA install prompt — registers /sw.js and shows install CTA when ready */}
+        <InstallPrompt />
       </body>
     </html>
   );
