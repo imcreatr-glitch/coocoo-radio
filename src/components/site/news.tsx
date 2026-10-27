@@ -46,7 +46,7 @@ export default function NewsSection() {
   const filtered = items.filter((n) => n.language === lang);
 
   return (
-    <section id="news" className="border-y border-amber-400/10 bg-[oklch(0.185_0.015_60)]">
+    <section id="news" className="border-y border-amber-400/10 bg-[color:var(--bg-panel)]">
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
         <SectionTitle title="ਤਾਜ਼ਾ ਖ਼ਬਰਾਂ • Latest News" sub="Punjabi te English — dono bhashawan vich sab ton navi khabar" />
 
@@ -82,7 +82,7 @@ export default function NewsSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-40px" }}
                 transition={{ duration: 0.4, delay: i * 0.05 }}
-                className="flex flex-col overflow-hidden rounded-2xl border border-amber-400/15 bg-[oklch(0.21_0.018_60)] transition-all hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(245,158,11,0.15)]"
+                className="flex flex-col overflow-hidden rounded-2xl border border-amber-400/15 bg-[color:var(--bg-card)] transition-all hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(245,158,11,0.15)]"
                 data-testid={`news-card-${i}`}
               >
                 {item.imageUrl && (
@@ -132,7 +132,7 @@ export default function NewsSection() {
       </div>
 
       <Dialog open={!!active} onOpenChange={(o) => !o && setActive(null)}>
-        <DialogContent className="max-w-2xl border-amber-400/25 bg-[oklch(0.19_0.02_60)]">
+        <DialogContent className="max-w-2xl border-amber-400/25 bg-[color:var(--bg-grad-end)]">
           <DialogHeader>
             <DialogTitle className="font-gur text-left text-lg leading-snug text-amber-50">
               {active?.title}
