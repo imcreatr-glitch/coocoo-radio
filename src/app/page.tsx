@@ -7,7 +7,6 @@ import Ticker from "@/components/site/ticker";
 import ScheduleSection from "@/components/site/schedule";
 import NewsSection from "@/components/site/news";
 import ListenerSection from "@/components/site/listener";
-import LiveStudio from "@/components/site/live-studio";
 import AdsSection from "@/components/site/ads";
 import Footer from "@/components/site/footer";
 import PlayerBar from "@/components/site/player-bar";
@@ -49,7 +48,6 @@ export default function Home() {
       <main className="flex-1">
         <Hero shows={shows} />
         <Ticker />
-        <LiveStudio />
         <ScheduleSection />
         <NewsSection />
         <ListenerSection />
