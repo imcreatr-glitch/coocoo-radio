@@ -138,7 +138,7 @@ export default function PlayerBar() {
             <span
               className={`flex h-12 w-12 items-center justify-center rounded-full text-black ${
                 playing
-                  ? "bg-gradient-to-br from-amber-400 to-orange-600 shadow-[0_0_18px_rgba(245,158,11,0.5)]"
+                  ? "bg-gradient-to-br from-amber-400 to-orange-600 shadow-[0_0_18px_rgba(var(--amb-rgb),0.5)]"
                   : "bg-gradient-to-br from-amber-300 to-orange-500"
               }`}
             >
