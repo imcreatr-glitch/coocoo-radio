@@ -79,7 +79,7 @@ export default function ScheduleSection() {
             onClick={() => setSelectedDay(i)}
             className={`shrink-0 rounded-xl border px-4 py-2 text-sm font-semibold transition-all ${
               (selectedDay ?? today) === i
-                ? "border-amber-400 bg-gradient-to-br from-amber-400 to-orange-500 text-black shadow-[0_4px_18px_rgba(245,158,11,0.4)]"
+                ? "border-amber-400 bg-gradient-to-br from-amber-400 to-orange-500 text-black shadow-[0_4px_18px_rgba(var(--amb-rgb),0.4)]"
                 : "border-amber-400/25 bg-amber-400/5 text-amber-200/80 hover:border-amber-400/50 hover:bg-amber-400/10"
             }`}
           >
@@ -107,7 +107,7 @@ export default function ScheduleSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-40px" }}
                 transition={{ duration: 0.4, delay: i * 0.05 }}
-                className={`group overflow-hidden rounded-2xl border bg-[color:var(--bg-card)] transition-all hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(245,158,11,0.18)] ${
+                className={`group overflow-hidden rounded-2xl border bg-[color:var(--bg-card)] transition-all hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(var(--amb-rgb),0.18)] ${
                   onAir ? "border-red-500/60 shadow-[0_0_24px_rgba(239,68,68,0.25)]" : "border-amber-400/15"
                 }`}
                 data-testid={`show-card-${i}`}
