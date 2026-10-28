@@ -204,8 +204,8 @@ export default function PlayerBar() {
           {isStream ? (
             <p className="mt-0.5 flex flex-wrap items-center gap-x-2 truncate text-sm font-semibold text-amber-50" data-testid="player-track">
               <span className="truncate">🔴 {settings.liveTitle || "Darbar Sahib Live"}</span>
-              <span className="flex shrink-0 items-center gap-1 font-mono text-xs font-bold text-amber-300">
-                <Clock className="h-3 w-3" /> {nowAmPm(nowT)}
+              <span className="flex shrink-0 items-center gap-1 font-mono text-xs font-bold text-amber-300" title="Punjab (India) time">
+                <Clock className="h-3 w-3" /> {nowAmPm(nowT)} IST
               </span>
             </p>
           ) : current ? (
