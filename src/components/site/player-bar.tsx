@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Music2, Pause, Play, Radio, SkipBack, SkipForward, Square, Volume2, VolumeX, Wifi } from "lucide-react";
+import { Clock, Music2, Pause, Play, Radio, SkipBack, SkipForward, Square, Volume2, VolumeX, Wifi } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Equalizer } from "@/components/site/hero";
 import { usePlayer } from "@/lib/store";
+import { useNow } from "@/lib/use-now";
 import { adminFetch, getToken } from "@/lib/client-auth";
-import { artistImageFor, parsePlayerStyle, parseStreamLibrary } from "@/lib/types";
+import { artistImageFor, isLiveOn, nowAmPm, parsePlayerStyle, parseStreamLibrary } from "@/lib/types";
 
 function fmt(sec: number): string {
   if (!isFinite(sec) || sec < 0) return "0:00";
@@ -34,15 +35,17 @@ export default function PlayerBar() {
   const [tuning, setTuning] = useState(false);
   // radio-style: visitors only get play/pause + volume; skip buttons are admin-only
   const [isAdmin, setIsAdmin] = useState(false);
-  const isStream = settings.liveMode === "stream" && !!settings.liveUrl;
+  // Gurbani live ON? Manual stream ya time-table window — dono check karda (30s tick)
+  const nowT = useNow(30000);
+  const isStream = isLiveOn(settings, nowT) && !!settings.liveUrl;
   const current = tracks.length > 0 ? tracks[index % tracks.length] : null;
   const pStyle = parsePlayerStyle(settings.playerStyle);
-  // Button ch photo: songs mode = singer photo, stream mode = Darbar Sahib live photo —
+  // Button ch photo: songs mode = singer photo, live mode = Darbar Sahib live photo —
   // dono SAME toggle button ch (vakhri button nahi). Circle mode ch (showImage off) koi photo nahi.
   const artistImg = pStyle.showImage
     ? !isStream && current
       ? artistImageFor(settings.artistImages, current.artist)
-      : settings.liveMode === "stream"
+      : isStream
         ? settings.liveImage || null
         : null
     : null;
@@ -199,8 +202,11 @@ export default function PlayerBar() {
             <Equalizer playing={playing} bars={4} className="hidden h-5 sm:flex" />
           </div>
           {isStream ? (
-            <p className="mt-0.5 truncate text-sm font-semibold text-amber-50" data-testid="player-track">
-              🔴 {settings.liveTitle || "Darbar Sahib Live"}
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 truncate text-sm font-semibold text-amber-50" data-testid="player-track">
+              <span className="truncate">🔴 {settings.liveTitle || "Darbar Sahib Live"}</span>
+              <span className="flex shrink-0 items-center gap-1 font-mono text-xs font-bold text-amber-300">
+                <Clock className="h-3 w-3" /> {nowAmPm(nowT)}
+              </span>
             </p>
           ) : current ? (
             <div className="mt-0.5" data-testid="player-track">
