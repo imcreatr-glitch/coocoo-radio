@@ -195,6 +195,13 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       // (3) Audio ad da time hoya? awaaj low karke ad chalao
       fireDueAd();
     }, 30000);
+
+    // Har 2 minute baad navi settings/songs lao — admin de badlav (program, playlist,
+    // gurbani window, manual ON/BAND) khuliya siteyan te vi 2 min ch lagu ho jaande ne.
+    setInterval(() => {
+      const s = get();
+      if (s.bootstrapped && !s.adTitle) s.refreshContext();
+    }, 120000);
   },
 
   refreshContext: async () => {
