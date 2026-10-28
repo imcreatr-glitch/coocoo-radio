@@ -12,7 +12,22 @@ import { usePlayer } from "@/lib/store";
 import { adminFetch } from "@/lib/client-auth";
 import { fileToDataUrl } from "@/lib/image-client";
 import type { StationSettings } from "@/lib/types";
-import { parsePlayerStyle, parseStreamLibrary, parseTheme, THEME_PRESETS, ytId, ytThumb, type PlayerStyle, type StreamEntry } from "@/lib/types";
+import {
+  fmtAmPm,
+  inGurbaniWindow,
+  parseGurbaniSchedule,
+  parsePlayerStyle,
+  parseTickerStyle,
+  parseStreamLibrary,
+  parseTheme,
+  THEME_PRESETS,
+  ytId,
+  ytThumb,
+  type GurbaniSchedule,
+  type PlayerStyle,
+  type StreamEntry,
+  type TickerStyle,
+} from "@/lib/types";
 import { FieldLabel, FilePick } from "@/components/admin/shared";
 
 /** Built-in preset — hamesha library ch dikhega (jadon tak khud add nahi kitta) */
@@ -54,10 +69,18 @@ export default function SettingsTab() {
   const [confirmPw, setConfirmPw] = useState("");
   const [pwSaving, setPwSaving] = useState(false);
 
+  // Gurbani auto time-table + ticker colors (local editable copies)
+  const [sched, setSched] = useState<GurbaniSchedule>({ enabled: false, windows: [] });
+  const [tStyle, setTStyle] = useState<TickerStyle>(() => parseTickerStyle(""));
+
   useEffect(() => {
     fetch("/api/settings", { cache: "no-store" })
       .then((r) => r.json())
-      .then((data: StationSettings) => setSettings((s) => ({ ...s, ...data })))
+      .then((data: StationSettings) => {
+        setSettings((s) => ({ ...s, ...data }));
+        setSched(parseGurbaniSchedule(data.gurbaniSchedule));
+        setTStyle(parseTickerStyle(data.tickerStyle));
+      })
       .catch(() => {});
   }, []);
 
@@ -218,6 +241,28 @@ export default function SettingsTab() {
       toast({ title: "Save nahi hoya", variant: "destructive" });
     }
   };
+
+  // ── Gurbani auto time-table (jadon window hove ta live auto ON) ──
+  const saveSched = async (next: GurbaniSchedule) => {
+    setSched(next);
+    try {
+      await putSettings({ gurbaniSchedule: JSON.stringify(next) }, "⏰ Gurbani Time-Table save ho gayi!");
+    } catch {
+      toast({ title: "Save nahi hoya", variant: "destructive" });
+    }
+  };
+
+  // ── Breaking News ticker de rang ──
+  const saveTStyle = async (next: TickerStyle) => {
+    setTStyle(next);
+    try {
+      await putSettings({ tickerStyle: JSON.stringify(next) }, "🟡 Ticker de rang save ho gaye!");
+    } catch {
+      toast({ title: "Save nahi hoya", variant: "destructive" });
+    }
+  };
+
+  const TICKER_DEFAULT: TickerStyle = { bg: "#facc15", text: "#18181b", labelBg: "#09090b", labelText: "#ffffff" };
 
   // ── Site theme (professional color presets) ──
   const saveTheme = async (key: string) => {
@@ -396,7 +441,7 @@ export default function SettingsTab() {
               )}
               {!imgUploading && settings.liveImage && (
                 <p className="flex items-center gap-2 text-xs text-green-400">
-                  <ImagePlus className="h-3.5 w-3.5" /> Photo set hai — Save karo te site te dikhegi
+                  <ImagePlus className="h-3.5 w-3.5" /> Photo set hai — jado Gurbani live chalegi (manual ON ya Time-Table) tab hero ch dikhegi
                 </p>
               )}
             </div>
@@ -489,6 +534,99 @@ export default function SettingsTab() {
             Library ch add karo
           </Button>
         </div>
+      </div>
+
+      {/* ── Gurbani Auto Time-Table — fix time te live auto ON, bahar songs ── */}
+      <div className="rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)] p-5" data-testid="gurbani-schedule">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-base font-bold text-amber-100">
+            ⏰ Gurbani da Time-Table (Auto)
+            <span className="text-xs font-normal text-amber-100/50">(fix time te gurbani, baaki songs)</span>
+          </h3>
+          {sched.enabled ? (
+            <Badge className="border-0 bg-green-600 text-[10px] font-bold text-white">AUTO ON</Badge>
+          ) : (
+            <Badge variant="outline" className="border-amber-400/40 text-[10px] uppercase text-amber-300">AUTO BAND</Badge>
+          )}
+        </div>
+        <p className="mb-3 text-xs text-amber-100/60">
+          Time fix karo — os window vich <b className="text-amber-300">Darbar Sahib live khud ON ho jaugegi</b>, window ton bahar apne songs chalnge.
+          Manual ON/BAND button vi kam karda rehuga — ohdi hamesha jeet hundi (je tusi khud ON kitta, schedule vi nahi banda).
+        </p>
+
+        <div className="mb-3 flex items-center justify-between rounded-xl border border-amber-400/15 bg-black/25 px-4 py-3">
+          <div>
+            <p className="text-sm font-bold text-amber-100">🤖 Auto Time-Table chalu karo</p>
+            <p className="mt-0.5 text-xs text-amber-100/50">ON karo, time windows pao — site khud gurbani/songs switch karegi</p>
+          </div>
+          <Switch
+            checked={sched.enabled}
+            onCheckedChange={(v) => saveSched({ ...sched, enabled: v })}
+            aria-label="Gurbani auto time-table ON/OFF"
+            data-testid="schedule-toggle"
+          />
+        </div>
+
+        {sched.windows.length > 0 && (
+          <div className="space-y-2">
+            {sched.windows.map((w, i) => (
+              <div key={i} className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-400/10 bg-black/25 px-3 py-2.5">
+                <span className="text-xs font-bold uppercase tracking-wide text-amber-300/80">Window {i + 1}</span>
+                <input
+                  type="time"
+                  value={w.start}
+                  onChange={(e) =>
+                    saveSched({ ...sched, windows: sched.windows.map((x, j) => (j === i ? { ...x, start: e.target.value } : x)) })
+                  }
+                  aria-label="Window shuru time"
+                  className="rounded-lg border border-amber-400/30 bg-black/40 px-2 py-1.5 text-sm text-amber-50 [color-scheme:dark]"
+                />
+                <span className="text-amber-100/50">→</span>
+                <input
+                  type="time"
+                  value={w.end}
+                  onChange={(e) =>
+                    saveSched({ ...sched, windows: sched.windows.map((x, j) => (j === i ? { ...x, end: e.target.value } : x)) })
+                  }
+                  aria-label="Window akhri time"
+                  className="rounded-lg border border-amber-400/30 bg-black/40 px-2 py-1.5 text-sm text-amber-50 [color-scheme:dark]"
+                />
+                <span className="font-mono text-xs font-bold text-amber-200/80">
+                  {fmtAmPm(w.start)} – {fmtAmPm(w.end)}
+                </span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label={`Window ${i + 1} kado`}
+                  onClick={() => saveSched({ ...sched, windows: sched.windows.filter((_, j) => j !== i) })}
+                  className="ml-auto h-8 w-8 shrink-0 text-red-300 hover:bg-red-400/15"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <Button
+          onClick={() => saveSched({ ...sched, windows: [...sched.windows, { start: "04:00", end: "10:00" }] })}
+          variant="outline"
+          data-testid="schedule-add"
+          className="mt-3 border-amber-400/40 text-amber-200"
+        >
+          <Plus className="mr-1 h-4 w-4" />
+          Navi window add karo
+        </Button>
+
+        {sched.enabled && sched.windows.length > 0 && (
+          <p className="mt-2 text-xs text-green-400">
+            ✅ Time-table chal rahi hai — hun:{" "}
+            {inGurbaniWindow(sched, new Date()) ? "GURBANI window chal rahi hai (live bajegi)" : "window bahar — songs chal rahe ne"}
+          </p>
+        )}
+        {sched.enabled && sched.windows.length === 0 && (
+          <p className="mt-2 text-xs text-amber-300">Windows add karo — bina window koi auto-switch nahi hovega</p>
+        )}
       </div>
 
       {/* ── Singer Photos — stamp-size image with now-playing ── */}
@@ -669,6 +807,95 @@ export default function SettingsTab() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* ── Breaking News Ticker de Rang — admin-configurable colors ── */}
+      <div className="rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)] p-5" data-testid="ticker-style">
+        <h3 className="mb-2 flex items-center gap-2 text-base font-bold text-amber-100">
+          🟡 Breaking News Ticker de Rang
+          <span className="text-xs font-normal text-amber-100/50">(apni pasand de karo)</span>
+        </h3>
+        <p className="mb-3 text-xs text-amber-100/60">
+          Upar wali news strip de rang chuno — label da background, label de text, scrolling area da background te text. Rang chuno te foran save ho jauga, site te vikh jauga.
+        </p>
+
+        {/* Live preview */}
+        <div className="overflow-hidden rounded-xl border border-black/25" style={{ backgroundColor: tStyle.bg }}>
+          <div className="flex items-stretch">
+            <div className="flex shrink-0 items-center px-3 py-2" style={{ backgroundColor: tStyle.labelBg }}>
+              <span className="text-xs font-extrabold uppercase tracking-wider" style={{ color: tStyle.labelText }}>
+                Breaking News
+              </span>
+            </div>
+            <div className="flex flex-1 items-center px-3 py-2">
+              <span className="font-gur text-sm font-semibold" style={{ color: tStyle.text }}>
+                📰 Sample khabar — eh vekh ke rang chuno
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-amber-400/15 bg-black/25 p-4">
+            <p className="text-sm font-bold text-amber-100">⬛ Label da background</p>
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="color"
+                value={tStyle.labelBg}
+                onChange={(e) => saveTStyle({ ...tStyle, labelBg: e.target.value })}
+                aria-label="Label background rang"
+                className="h-10 w-16 cursor-pointer rounded-lg border border-amber-400/30 bg-transparent"
+              />
+              <span className="font-mono text-xs text-amber-100/60">{tStyle.labelBg}</span>
+            </div>
+          </div>
+          <div className="rounded-xl border border-amber-400/15 bg-black/25 p-4">
+            <p className="text-sm font-bold text-amber-100">Breaking News de text da rang</p>
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="color"
+                value={tStyle.labelText}
+                onChange={(e) => saveTStyle({ ...tStyle, labelText: e.target.value })}
+                aria-label="Label text rang"
+                className="h-10 w-16 cursor-pointer rounded-lg border border-amber-400/30 bg-transparent"
+              />
+              <span className="font-mono text-xs text-amber-100/60">{tStyle.labelText}</span>
+            </div>
+          </div>
+          <div className="rounded-xl border border-amber-400/15 bg-black/25 p-4">
+            <p className="text-sm font-bold text-amber-100">🟡 Scrolling area da background</p>
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="color"
+                value={tStyle.bg}
+                onChange={(e) => saveTStyle({ ...tStyle, bg: e.target.value })}
+                aria-label="Scroll background rang"
+                className="h-10 w-16 cursor-pointer rounded-lg border border-amber-400/30 bg-transparent"
+              />
+              <span className="font-mono text-xs text-amber-100/60">{tStyle.bg}</span>
+            </div>
+          </div>
+          <div className="rounded-xl border border-amber-400/15 bg-black/25 p-4">
+            <p className="text-sm font-bold text-amber-100">Scrolling khabra de text da rang</p>
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="color"
+                value={tStyle.text}
+                onChange={(e) => saveTStyle({ ...tStyle, text: e.target.value })}
+                aria-label="Scroll text rang"
+                className="h-10 w-16 cursor-pointer rounded-lg border border-amber-400/30 bg-transparent"
+              />
+              <span className="font-mono text-xs text-amber-100/60">{tStyle.text}</span>
+            </div>
+          </div>
+        </div>
+        <Button
+          onClick={() => saveTStyle(TICKER_DEFAULT)}
+          variant="outline"
+          className="mt-3 border-amber-400/40 text-amber-200"
+        >
+          Default rang wapis karo (peela + kaala)
+        </Button>
       </div>
 
       {/* ── ON AIR NOW card ch YouTube video ── */}
