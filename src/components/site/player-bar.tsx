@@ -129,12 +129,13 @@ export default function PlayerBar() {
                 alt={isStream ? settings.liveTitle || "Live" : current?.artist || "Singer"}
                 className="h-12 w-12 rounded-full border border-black/40 object-cover"
               />
+              {/* Play/pause CORNER badge — singer da face vich ch nahi dhakda */}
               <span
-                className={`absolute inset-0 m-auto flex h-6 w-6 items-center justify-center rounded-full text-white backdrop-blur-[2px] ${
-                  playing ? "bg-black/30" : "bg-black/55"
+                className={`absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border border-white/50 text-white shadow-sm backdrop-blur-[2px] ${
+                  playing ? "bg-black/35" : "bg-black/75"
                 }`}
               >
-                {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="ml-px h-3.5 w-3.5" />}
+                {playing ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
               </span>
             </>
           ) : (
