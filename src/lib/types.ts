@@ -63,7 +63,9 @@ export interface StationSettings {
   donationNote?: string; // optional message inside donation dialog
   donationQr?: string; // data URL — UPI QR image in donation dialog
   onAirVideo?: string; // YouTube URL — ON AIR NOW card ch video (khaali = text design)
-  theme?: string; // site color theme key (sunrise | royal | emerald | violet | crimson)
+  theme?: string; // site color theme key (sunrise | royal | emerald | violet | crimson | white | black)
+  tickerStyle?: string; // JSON TickerStyle — Breaking News ticker de rang (bg/text/labelBg/labelText)
+  gurbaniSchedule?: string; // JSON GurbaniSchedule — time windows jadon gurbani live auto chalegi
 }
 
 export const DEFAULT_SETTINGS: StationSettings = {
@@ -82,6 +84,8 @@ export const DEFAULT_SETTINGS: StationSettings = {
   donationQr: "",
   onAirVideo: "",
   theme: "",
+  tickerStyle: "",
+  gurbaniSchedule: "",
 };
 
 /** Site color themes (admin-switchable, professional palettes) */
@@ -100,6 +104,98 @@ export function parseTheme(raw: string | undefined | null): string {
   const v = (raw || "").trim();
   if (v === "mono") return "black";
   return THEME_PRESETS.some((t) => t.key === v) ? v : "sunrise";
+}
+
+/** Breaking News ticker colors (admin-configurable; Sky News style default) */
+export interface TickerStyle {
+  bg: string; // scrolling area background
+  text: string; // scrolling headline text color
+  labelBg: string; // "Breaking News" label background
+  labelText: string; // label text color
+}
+
+/** Parse tickerStyle setting (never throws, Sky News defaults) */
+export function parseTickerStyle(raw: string | undefined | null): TickerStyle {
+  const def: TickerStyle = { bg: "#facc15", text: "#18181b", labelBg: "#09090b", labelText: "#ffffff" };
+  if (!raw) return def;
+  try {
+    const v = JSON.parse(raw) as Partial<TickerStyle>;
+    const hex = (s: unknown, fb: string) => (typeof s === "string" && /^#[0-9a-fA-F]{3,8}$/.test(s) ? s : fb);
+    return {
+      bg: hex(v.bg, def.bg),
+      text: hex(v.text, def.text),
+      labelBg: hex(v.labelBg, def.labelBg),
+      labelText: hex(v.labelText, def.labelText),
+    };
+  } catch {
+    return def;
+  }
+}
+
+/** One Gurbani auto window — jadon Darbar Sahib live auto chalegi ("HH:MM" 24h) */
+export interface GurbaniWindow {
+  start: string;
+  end: string;
+}
+
+export interface GurbaniSchedule {
+  enabled: boolean;
+  windows: GurbaniWindow[];
+}
+
+/** Parse gurbaniSchedule setting (never throws) */
+export function parseGurbaniSchedule(raw: string | undefined | null): GurbaniSchedule {
+  const def: GurbaniSchedule = { enabled: false, windows: [] };
+  if (!raw) return def;
+  try {
+    const v = JSON.parse(raw) as Partial<GurbaniSchedule>;
+    const windows = Array.isArray(v.windows)
+      ? v.windows
+          .filter((w): w is GurbaniWindow => !!w && typeof w.start === "string" && typeof w.end === "string")
+          .map((w) => ({ start: w.start, end: w.end }))
+      : [];
+    return { enabled: v.enabled === true, windows };
+  } catch {
+    return def;
+  }
+}
+
+/** Kya `date` kisi schedule window vich aunda? Overnight windows (22:00-04:00) vi handle karde */
+export function inGurbaniWindow(sched: GurbaniSchedule, date: Date): boolean {
+  if (!sched.enabled || sched.windows.length === 0) return false;
+  const mins = date.getHours() * 60 + date.getMinutes();
+  return sched.windows.some((w) => {
+    const s = toMin(w.start);
+    const e = toMin(w.end);
+    if (s === e) return true; // full-day window
+    if (s < e) return mins >= s && mins < e; // same-day
+    return mins >= s || mins < e; // overnight (e.g. 22:00 -> 04:00)
+  });
+}
+
+/** Kya hun Gurbani live chalni chahidi? Manual stream hamesha jeet; warna schedule window. */
+export function isLiveOn(
+  settings: Pick<StationSettings, "liveMode" | "liveUrl" | "gurbaniSchedule">,
+  now: Date = new Date()
+): boolean {
+  if (settings.liveMode === "stream" && !!settings.liveUrl) return true; // manual ON hamesha jeet
+  if (!settings.liveUrl) return false;
+  return inGurbaniWindow(parseGurbaniSchedule(settings.gurbaniSchedule), now);
+}
+
+/** "04:30" -> "4:30 AM", "22:15" -> "10:15 PM" */
+export function fmtAmPm(t: string): string {
+  const [h, m] = (t || "0:0").split(":").map(Number);
+  const hh = (h || 0) % 24;
+  const mm = (m || 0).toString().padStart(2, "0");
+  const ampm = hh < 12 ? "AM" : "PM";
+  const h12 = hh % 12 === 0 ? 12 : hh % 12;
+  return `${h12}:${mm} ${ampm}`;
+}
+
+/** Hun-da time 12h AM/PM ch, e.g. "5:07 PM" */
+export function nowAmPm(d: Date): string {
+  return fmtAmPm(`${d.getHours()}:${d.getMinutes()}`);
 }
 
 /** Now-playing play/pause button style (admin-configurable) */
