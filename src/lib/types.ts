@@ -67,7 +67,8 @@ export interface StationSettings {
   tickerStyle?: string; // JSON TickerStyle — Breaking News ticker de rang (bg/text/labelBg/labelText)
   gurbaniSchedule?: string; // JSON GurbaniSchedule — time windows jadon gurbani live auto chalegi
   liveOverride?: string; // "" = auto (time-table) | "on" = manual ON | "off" = manual BAND (window vi nahi chalegi)
-  programs?: string; // JSON Program[] — auto-play time-table (jiven 5-6 Old Songs, 6-7 Podcast)
+  playlists?: string; // JSON Playlist[] — admin di saved playlists (ordered songs/podcast/gurbani)
+  programs?: string; // JSON Program[] — auto-play time-table (playlist + time window)
   audioAds?: string; // JSON AudioAd[] — auto ad breaks (time te song awaaj low, ad chale, fer wapis normal)
 }
 
@@ -90,6 +91,7 @@ export const DEFAULT_SETTINGS: StationSettings = {
   tickerStyle: "",
   gurbaniSchedule: "",
   liveOverride: "",
+  playlists: "",
   programs: "",
   audioAds: "",
 };
@@ -208,10 +210,11 @@ export function isLiveOn(
 export interface Program {
   id: string;
   title: string;
+  playlistId?: string; // kittho songs chalna (Playlists vichon) — nava tareeka
   start: string; // "05:00"
   end: string; // "06:00"
   days: string; // "0,1,2,3,4,5,6" (0 = Aitvaar)
-  songIds: string; // JSON array of song ids
+  songIds?: string; // PURANA fallback: embedded JSON ids (navi programs playlistId varatde ne)
   active: boolean;
 }
 
@@ -229,6 +232,7 @@ export function parsePrograms(raw: string | undefined | null): Program[] {
       .map((p, i) => ({
         id: typeof p.id === "string" && p.id ? p.id : `prog-${i}`,
         title: (p.title as string).trim() || "Program",
+        playlistId: typeof p.playlistId === "string" && p.playlistId ? p.playlistId : undefined,
         start: p.start as string,
         end: p.end as string,
         days: typeof p.days === "string" && p.days.trim() ? p.days : "0,1,2,3,4,5,6",
@@ -250,16 +254,84 @@ export function activeProgram(
   const mins = now.getHours() * 60 + now.getMinutes();
   const day = now.getDay();
   for (const p of progs) {
-    const days = p.days.split(",").map((d) => Number(d.trim()));
-    const s = toMin(p.start);
-    const e = toMin(p.end);
-    let on: boolean;
-    if (s === e) on = days.includes(day); // 24h program
-    else if (s < e) on = days.includes(day) && mins >= s && mins < e;
-    else on = (days.includes(day) && mins >= s) || (days.includes((day + 6) % 7) && mins < e); // overnight
-    if (on) return p;
+    if (timeWindowOn(p.start, p.end, p.days, now)) return p;
   }
   return null;
+}
+
+/** ── Playlists: admin di ORDERED lists (songs/podcast/gurbani kuj vi) ──
+ *  songIds array da ORDER hi play order hai — 1, 2, 3... radio vangu chalna. */
+export interface Playlist {
+  id: string;
+  title: string;
+  songIds: string[]; // ordered!
+}
+
+/** Parse playlists setting (never throws, always returns array) */
+export function parsePlaylists(raw: string | undefined | null): Playlist[] {
+  if (!raw) return [];
+  try {
+    const v = JSON.parse(raw) as unknown;
+    if (!Array.isArray(v)) return [];
+    return v
+      .filter((p): p is Partial<Playlist> => !!p && typeof p === "object" && typeof p.title === "string")
+      .map((p, i) => ({
+        id: typeof p.id === "string" && p.id ? p.id : `pl-${i}`,
+        title: (p.title as string).trim() || "Playlist",
+        songIds: Array.isArray(p.songIds) ? (p.songIds as unknown[]).filter((x): x is string => typeof x === "string") : [],
+      }));
+  } catch {
+    return [];
+  }
+}
+
+/** Program de songs (ordered queue) — pehla playlistId ton, na milda hove ta purane embedded songIds ton. */
+export function playlistQueue(
+  prog: Program,
+  settings: Pick<StationSettings, "playlists">,
+  songs: Song[]
+): Song[] {
+  const byId = new Map(songs.map((s) => [s.id, s]));
+  const pick = (ids: string[]): Song[] => {
+    const q = ids.map((id) => byId.get(id)).filter((s): s is Song => !!s);
+    return q.length > 0 ? q : [];
+  };
+  if (prog.playlistId) {
+    const pl = parsePlaylists(settings.playlists).find((p) => p.id === prog.playlistId);
+    if (pl && pl.songIds.length > 0) {
+      const q = pick(pl.songIds);
+      if (q.length > 0) return q;
+    }
+  }
+  try {
+    const ids = JSON.parse(prog.songIds || "[]") as string[];
+    if (Array.isArray(ids) && ids.length > 0) return pick(ids);
+  } catch {
+    /* ignore */
+  }
+  return [];
+}
+
+/** Program da kinni minute ho gaye (start ton hun tak) — overnight vi handle */
+export function programElapsedMin(prog: Program, now: Date): number {
+  const s = toMin(prog.start);
+  const e = toMin(prog.end);
+  const mins = now.getHours() * 60 + now.getMinutes();
+  if (s === e) return mins; // 24h program — din bhar da position
+  if (s < e) return Math.max(0, mins - s);
+  return mins >= s ? mins - s : 1440 - s + mins; // overnight
+}
+
+/** ── RADIO-SYNC: refresh te vi OHI song bajega jo is vele radio ch chal rya hai ──
+ *  Listener kade vi aave (ja page refresh kare), list shuru ton nahi — ohda position
+ *  TIME ton calculate hunda: elapsed minutes / audasat song length. Is layi saare
+ *  sunne vaalean nu ek vele ek hi song sunayi deva (sachchi radio vangu). */
+export const AVG_SONG_MIN = 4; // audasat song length (minute) — position estimate lia
+
+export function anchoredIndex(queueLen: number, elapsedMin: number): number {
+  if (queueLen <= 0) return 0;
+  const pos = Math.floor(Math.max(0, elapsedMin) / AVG_SONG_MIN);
+  return pos % queueLen;
 }
 
 /** ── Audio Ads: auto ad break — song awaaj low, ad chalegi, mukne te awaaj wapis normal ── */
