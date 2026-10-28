@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import type { Song, StationSettings } from "@/lib/types";
-import { DEFAULT_SETTINGS, isLiveOn } from "@/lib/types";
+import { DEFAULT_SETTINGS, isLiveOn, nowIST } from "@/lib/types";
 
 interface PlayerState {
   audio: HTMLAudioElement | null;
@@ -45,7 +45,7 @@ function buildQueue(settings: StationSettings, songs: Song[]): Song[] {
 function loadSrc(state: PlayerState): string | null {
   const { settings, tracks, index } = state;
   // Manual stream jeet + Gurbani time-table window vich vi live chalugi
-  if (isLiveOn(settings, new Date()) && settings.liveUrl) return settings.liveUrl;
+  if (isLiveOn(settings, nowIST()) && settings.liveUrl) return settings.liveUrl;
   if (tracks.length === 0) return null;
   return tracks[((index % tracks.length) + tracks.length) % tracks.length].url;
 }
@@ -75,7 +75,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     audio.addEventListener("ended", () => {
       // 24x7 auto-pilot: loop the live queue forever (live stream chaldi khatam nahi hundi)
       const s = get();
-      if (isLiveOn(s.settings, new Date())) return;
+      if (isLiveOn(s.settings, nowIST())) return;
       s.next();
       const after = get();
       if (after.audio && after.currentSrc) {
@@ -120,7 +120,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
         audio.src = src;
         set({ currentSrc: src });
         if (wasPlaying) audio.play().catch(() => {});
-      } else if (src && prevSrc && isLiveOn(get().settings, new Date()) && src !== prevSrc) {
+      } else if (src && prevSrc && isLiveOn(get().settings, nowIST()) && src !== prevSrc) {
         // mode flipped to live (manual ON ya schedule window shuru) — swap + chalao
         audio.src = src;
         set({ currentSrc: src });
@@ -167,7 +167,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
 
   next: () => {
     const { tracks, index } = get();
-    if (isLiveOn(get().settings, new Date()) || tracks.length === 0) return;
+    if (isLiveOn(get().settings, nowIST()) || tracks.length === 0) return;
     const newIndex = (index + 1) % tracks.length;
     set({ index: newIndex });
     const { audio, playing } = get();
@@ -181,7 +181,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
 
   prev: () => {
     const { tracks, index } = get();
-    if (isLiveOn(get().settings, new Date()) || tracks.length === 0) return;
+    if (isLiveOn(get().settings, nowIST()) || tracks.length === 0) return;
     const newIndex = (index - 1 + tracks.length) % tracks.length;
     set({ index: newIndex });
     const { audio, playing } = get();
