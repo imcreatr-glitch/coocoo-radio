@@ -30,18 +30,19 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
   const tracks = usePlayer((s) => s.tracks);
   const index = usePlayer((s) => s.index);
 
+  // Gurbani live ON? Manual stream ya time-table window — dono check karda
+  // (hamesha PUNJAB time naal — visitor kisi vi desh ch hove, ohda local time nahi)
+  const nowT = useNow(30000);
+  const liveOn = isLiveOn(settings, nowT);
+
   // ON AIR NOW card ch admin di YouTube video (thumbnail -> click -> autoplay embed)
   const onAirVid = ytId(settings.onAirVideo || "");
   const [vidPlay, setVidPlay] = useState(false);
 
+  // Scheduled shows da ON AIR check vi PUNJAB time naal hunda
   const onAir = useMemo(() => {
-    const now = new Date();
-    return shows.filter((s) => isOnAir(s, now.getDay(), now.getHours() * 60 + now.getMinutes()));
-  }, [shows]);
-
-  // Gurbani live ON? Manual stream ya time-table window — dono check karda
-  const nowT = useNow(30000);
-  const liveOn = isLiveOn(settings, nowT);
+    return shows.filter((s) => isOnAir(s, nowT.getDay(), nowT.getHours() * 60 + nowT.getMinutes()));
+  }, [shows, nowT]);
 
   const currentTrack = tracks.length > 0 ? tracks[index % tracks.length] : null;
   const artistImg =
@@ -113,8 +114,8 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
                     LIVE
                   </Badge>
                   <span className="truncate text-[10px] font-bold leading-tight text-white">{settings.liveTitle || "Darbar Sahib Live"}</span>
-                  <span className="ml-auto flex shrink-0 items-center gap-0.5 font-mono text-[9px] font-bold text-white/90">
-                    <Clock className="h-2.5 w-2.5" /> {nowAmPm(nowT)}
+                  <span className="ml-auto flex shrink-0 items-center gap-0.5 font-mono text-[9px] font-bold text-white/90" title="Punjab (India) time">
+                    <Clock className="h-2.5 w-2.5" /> {nowAmPm(nowT)} IST
                   </span>
                   <Equalizer playing={playing} bars={3} className="h-2.5 shrink-0" />
                 </div>
@@ -183,8 +184,8 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
               {liveOn ? (
                 <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm font-medium text-amber-50" data-testid="hero-track">
                   <span>🔴 {settings.liveTitle || "Darbar Sahib Live"}</span>
-                  <span className="flex items-center gap-1 font-mono text-xs font-bold text-amber-300">
-                    <Clock className="h-3 w-3" /> {nowAmPm(nowT)}
+                  <span className="flex items-center gap-1 font-mono text-xs font-bold text-amber-300" title="Punjab (India) time">
+                    <Clock className="h-3 w-3" /> {nowAmPm(nowT)} IST
                   </span>
                 </p>
               ) : currentTrack ? (
