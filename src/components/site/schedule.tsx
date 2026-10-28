@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { DAY_SHORT, isOnAir, ytId, ytThumb, type ShowItem } from "@/lib/types";
+import { DAY_SHORT, isOnAir, nowIST, ytId, ytThumb, type ShowItem } from "@/lib/types";
 
 function SectionTitle({ title, sub }: { title: string; sub: string }) {
   return (
@@ -44,7 +44,7 @@ export default function ScheduleSection() {
       })
       .catch(() => {});
     const t0 = window.setTimeout(() => {
-      const d = new Date();
+      const d = nowIST(); // aaj da din vi PUNJAB time naal
       setToday(d.getDay());
       setSelectedDay(d.getDay());
     }, 0);
@@ -63,12 +63,14 @@ export default function ScheduleSection() {
      
   }, [shows, selectedDay, today]);
 
-  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
-  const currentDay = new Date().getDay();
+  // ON AIR check hamesha PUNJAB (India) time naal — visitor de desh de time naal nahi
+  const now = nowIST();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const currentDay = now.getDay();
 
   return (
     <section id="schedule" className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
-      <SectionTitle title="ਸ਼ੋਅ ਟਾਈਮਿੰਗ • Show Schedule" sub="Har show da time fix — YouTube video naal. Je show chal raha hove, ON AIR badge vekho!" />
+      <SectionTitle title="ਸ਼ੋਅ ਟਾਈਮਿੰਗ • Show Schedule" sub="Har show da time Punjab (India) de hisaab naal — YouTube video naal. Je show chal raha hove, ON AIR badge vekho!" />
 
       {/* Day tabs */}
       <div className="mb-6 flex gap-2 overflow-x-auto pb-1 nice-scroll" data-testid="day-tabs">
