@@ -20,6 +20,7 @@ import {
   parseTickerStyle,
   parseStreamLibrary,
   parseTheme,
+  nowIST,
   THEME_PRESETS,
   ytId,
   ytThumb,
@@ -551,6 +552,7 @@ export default function SettingsTab() {
         </div>
         <p className="mb-3 text-xs text-amber-100/60">
           Time fix karo — os window vich <b className="text-amber-300">Darbar Sahib live khud ON ho jaugegi</b>, window ton bahar apne songs chalnge.
+          Saare time <b className="text-amber-300">Punjab (India) de</b> ne — USA/hor desh da visitor vi ohda hi time vekhega.
           Manual ON/BAND button vi kam karda rehuga — ohdi hamesha jeet hundi (je tusi khud ON kitta, schedule vi nahi banda).
         </p>
 
@@ -620,8 +622,8 @@ export default function SettingsTab() {
 
         {sched.enabled && sched.windows.length > 0 && (
           <p className="mt-2 text-xs text-green-400">
-            ✅ Time-table chal rahi hai — hun:{" "}
-            {inGurbaniWindow(sched, new Date()) ? "GURBANI window chal rahi hai (live bajegi)" : "window bahar — songs chal rahe ne"}
+            ✅ Time-table chal rahi hai (Punjab time) — hun:{" "}
+            {inGurbaniWindow(sched, nowIST()) ? "GURBANI window chal rahi hai (live bajegi)" : "window bahar — songs chal rahe ne"}
           </p>
         )}
         {sched.enabled && sched.windows.length === 0 && (
