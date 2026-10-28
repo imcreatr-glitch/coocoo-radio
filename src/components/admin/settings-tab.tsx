@@ -123,8 +123,8 @@ export default function SettingsTab() {
   const streamOn = async (entry: StreamEntry) => {
     try {
       await putSettings(
-        { liveMode: "stream", liveUrl: entry.url, liveTitle: settings.liveTitle || entry.name },
-        `🔴 ${entry.name} ON ho gayi!`
+        { liveMode: "stream", liveUrl: entry.url, liveTitle: settings.liveTitle || entry.name, liveOverride: "on" },
+        `🔴 ${entry.name} ON ho gayi! Hun chaldi rahegi jad tak tusi BAND na karde`
       );
     } catch {
       toast({ title: "ON nahi hoya — dubara koshish karo", variant: "destructive" });
@@ -133,9 +133,24 @@ export default function SettingsTab() {
 
   const streamOff = async () => {
     try {
-      await putSettings({ liveMode: "auto" }, "🎵 Live BAND — hun songs auto-pilot chalnge");
+      await putSettings(
+        { liveMode: "auto", liveOverride: "off" },
+        "⏹ Gurbani BAND (manual) — hun songs chalnge. Time-Table vi pause hai; AUTO dabawa ta fer wapis chale"
+      );
     } catch {
       toast({ title: "BAND nahi hoya — dubara koshish karo", variant: "destructive" });
+    }
+  };
+
+  /** Wapis AUTO mode — time-table (savere/shaam windows) khud gurbani/songs switch karegi */
+  const autoOn = async () => {
+    try {
+      await putSettings(
+        { liveMode: "auto", liveOverride: "" },
+        "🤖 AUTO mode chalu — hun Time-Table khud gurbani/songs switch karegi"
+      );
+    } catch {
+      toast({ title: "AUTO nahi hoya — dubara koshish karo", variant: "destructive" });
     }
   };
 
@@ -464,17 +479,20 @@ export default function SettingsTab() {
       <div className="rounded-2xl border border-red-400/25 bg-[color:var(--bg-card)] p-5" data-testid="gurbani-library">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-base font-bold text-amber-100">
-            📺 Gurbani / Live Library <span className="text-xs font-normal text-amber-100/50">(ek click ON/OFF)</span>
+            📺 Gurbani / Live Library <span className="text-xs font-normal text-amber-100/50">(ek click ON/OFF/AUTO)</span>
           </h3>
           {isStreamOn ? (
-            <Badge className="live-dot gap-1 border-0 bg-red-600 text-[10px] font-bold text-white">LIVE CHAL RYA HAAN</Badge>
+            <Badge className="live-dot gap-1 border-0 bg-red-600 text-[10px] font-bold text-white">MANUAL ON — CHAL RYA</Badge>
+          ) : settings.liveOverride === "off" ? (
+            <Badge className="gap-1 border-0 bg-zinc-600 text-[10px] font-bold text-white">MANUAL BAND</Badge>
           ) : (
-            <Badge variant="outline" className="border-amber-400/40 text-[10px] uppercase text-amber-300">Band hai — songs chal rahe ne</Badge>
+            <Badge variant="outline" className="border-green-400/50 text-[10px] font-bold uppercase text-green-300">🤖 AUTO (Time-Table)</Badge>
           )}
         </div>
         <p className="mb-3 text-xs text-amber-100/60">
-          Live stream ethe save rehnda hai. Jado gurbani chalani hove — <b className="text-amber-300">ON karo</b> dabao.
-          Khatam karni hove — <b className="text-amber-300">BAND karo</b> dabao, fer apne songs auto chalne ge.
+          Live stream ethe save rehnda hai. 3 tareeke ne —
+          <b className="text-amber-300"> ON karo</b> = gurbani foran chalu, <b className="text-amber-300">BAND karo</b> = foran band (dono manual — jad tak tusi na badlo, time-table vi nahi chalugi),
+          <b className="text-amber-300"> AUTO</b> = Time-Table apne aap ON/OFF karegi (savere 4–8, shaam 6–8 vagaira).
         </p>
 
         <div className="nice-scroll max-h-56 space-y-2 overflow-y-auto pr-1">
@@ -520,7 +538,16 @@ export default function SettingsTab() {
             variant="outline"
             className="border-red-400/40 text-red-300 disabled:opacity-40"
           >
-            <Square className="mr-1.5 h-3.5 w-3.5" /> ⏹ BAND karo (songs chalu)
+            <Square className="mr-1.5 h-3.5 w-3.5" /> ⏹ BAND karo (manual)
+          </Button>
+          <Button
+            onClick={autoOn}
+            disabled={!isStreamOn && (settings.liveOverride || "") === ""}
+            variant="outline"
+            data-testid="auto-mode-btn"
+            className="border-green-400/40 text-green-300 disabled:opacity-40"
+          >
+            🤖 AUTO chalu karo (Time-Table naal)
           </Button>
         </div>
 
@@ -553,8 +580,21 @@ export default function SettingsTab() {
         <p className="mb-3 text-xs text-amber-100/60">
           Time fix karo — os window vich <b className="text-amber-300">Darbar Sahib live khud ON ho jaugegi</b>, window ton bahar apne songs chalnge.
           Saare time <b className="text-amber-300">Punjab (India) de</b> ne — USA/hor desh da visitor vi ohda hi time vekhega.
-          Manual ON/BAND button vi kam karda rehuga — ohdi hamesha jeet hundi (je tusi khud ON kitta, schedule vi nahi banda).
+          Manual ON/BAND button ohda hamesha jeet hunda — jad tak tusi <b className="text-amber-300">AUTO chalu karo</b> na dabawo, time-table pause rehugi.
         </p>
+
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => saveSched({ enabled: true, windows: [{ start: "04:00", end: "08:00" }, { start: "18:00", end: "20:00" }] })}
+            variant="outline"
+            data-testid="schedule-preset"
+            className="border-green-400/40 text-green-300"
+          >
+            🌄 Savere 4–8 + Shaam 6–8 (Ready Set)
+          </Button>
+          <span className="text-xs text-amber-100/50">ek click ch dono windows — fer vi apne hisaab nal badal sakde ho</span>
+        </div>
 
         <div className="mb-3 flex items-center justify-between rounded-xl border border-amber-400/15 bg-black/25 px-4 py-3">
           <div>
