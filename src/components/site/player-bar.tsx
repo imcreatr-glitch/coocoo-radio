@@ -8,7 +8,7 @@ import { Equalizer } from "@/components/site/hero";
 import { usePlayer } from "@/lib/store";
 import { useNow } from "@/lib/use-now";
 import { adminFetch, getToken } from "@/lib/client-auth";
-import { artistImageFor, isLiveOn, nowAmPm, parsePlayerStyle, parseStreamLibrary } from "@/lib/types";
+import { artistImageFor, activeProgram, isLiveOn, nowAmPm, parsePlayerStyle, parseStreamLibrary } from "@/lib/types";
 
 function fmt(sec: number): string {
   if (!isFinite(sec) || sec < 0) return "0:00";
@@ -29,6 +29,7 @@ export default function PlayerBar() {
   const setVolume = usePlayer((s) => s.setVolume);
   const bootstrapped = usePlayer((s) => s.bootstrapped);
   const initAudio = usePlayer((s) => s.initAudio);
+  const adTitle = usePlayer((s) => s.adTitle);
 
   const [muted, setMuted] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -38,6 +39,8 @@ export default function PlayerBar() {
   // Gurbani live ON? Manual stream ya time-table window — dono check karda (30s tick)
   const nowT = useNow(30000);
   const isStream = isLiveOn(settings, nowT) && !!settings.liveUrl;
+  // Hun chal raha program (admin da auto time-table, Punjab time) — hove ta ohda naam dikhega
+  const prog = activeProgram(settings, nowT);
   const current = tracks.length > 0 ? tracks[index % tracks.length] : null;
   const pStyle = parsePlayerStyle(settings.playerStyle);
   // Button ch photo: songs mode = singer photo, live mode = Darbar Sahib live photo —
@@ -52,23 +55,32 @@ export default function PlayerBar() {
   const barRingColor = playing ? pStyle.playColor : pStyle.pauseColor;
   const canGurbani = !!settings.liveUrl || parseStreamLibrary(settings.streamLibrary).length > 0;
 
-  /** admin one-click: Gurbani ON (stream) / OFF (songs auto-pilot) */
+  /** admin one-click: Gurbani manual ON (hamesha chaldi rahegi) / manual BAND (time-table vi nahi chalegi) */
   const gurbaniToggle = async () => {
     if (tuning) return;
     setTuning(true);
     try {
       const s = usePlayer.getState();
-      const toStream = s.settings.liveMode !== "stream";
-      let liveUrl = s.settings.liveUrl;
-      if (toStream && !liveUrl) {
-        liveUrl = parseStreamLibrary(s.settings.streamLibrary)[0]?.url || "";
-        if (!liveUrl) return;
+      if (isStream) {
+        // Manual BAND — jad tak admin dubara ON/AUTO na kare, window vi nahi chalugi
+        await adminFetch("/api/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ liveMode: "auto", liveOverride: "off" }),
+        });
+      } else {
+        // Manual ON — jad tak admin BAND na kare gurbani chaldi rahegi
+        let liveUrl = s.settings.liveUrl;
+        if (!liveUrl) {
+          liveUrl = parseStreamLibrary(s.settings.streamLibrary)[0]?.url || "";
+          if (!liveUrl) return;
+        }
+        await adminFetch("/api/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ liveMode: "stream", liveUrl, liveOverride: "on" }),
+        });
       }
-      await adminFetch("/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ liveMode: toStream ? "stream" : "auto", liveUrl }),
-      });
       await s.refreshContext();
     } catch {
       // ignore — button just stays as-is
@@ -176,8 +188,8 @@ export default function PlayerBar() {
           <button
             type="button"
             onClick={gurbaniToggle}
-            aria-label={isStream ? "Gurbani band karo — songs chalu" : "Gurbani chalao"}
-            title={isStream ? "Gurbani BAND karo (songs chalu)" : "Gurbani ON karo"}
+            aria-label={isStream ? "Gurbani BAND karo (manual)" : "Gurbani chalao (manual)"}
+            title={isStream ? "Gurbani BAND karo — manual (time-table vi pause)" : "Gurbani ON karo — manual"}
             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition ${
               isStream
                 ? "border-red-400/50 bg-red-500/20 text-red-300"
@@ -197,7 +209,12 @@ export default function PlayerBar() {
               </Badge>
             ) : (
               <Badge variant="outline" className="shrink-0 border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                Auto-Pilot 24x7
+                {prog ? `📻 ${prog.title}` : "Auto-Pilot 24x7"}
+              </Badge>
+            )}
+            {adTitle && (
+              <Badge className="live-dot shrink-0 gap-1 border-0 bg-purple-600 px-2 py-0.5 text-[10px] font-bold text-white" title={adTitle}>
+                📢 AD CHAL RYA
               </Badge>
             )}
             <Equalizer playing={playing} bars={4} className="hidden h-5 sm:flex" />
