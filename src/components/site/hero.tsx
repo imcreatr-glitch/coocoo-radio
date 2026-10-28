@@ -2,11 +2,18 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Clock, Pause, Play, Radio, Sunrise, Tv } from "lucide-react";
+import { CalendarClock, Clock, Pause, Play, Radio, Sunrise, Tv } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { usePlayer } from "@/lib/store";
 import { useNow } from "@/lib/use-now";
-import { artistImageFor, isLiveOn, isOnAir, nowAmPm, parsePlayerStyle, ytId, ytThumb, type ShowItem } from "@/lib/types";
+import { activeProgram, artistImageFor, fmtAmPm, isLiveOn, isOnAir, nowAmPm, parsePlayerStyle, parsePrograms, timeWindowOn, toMin, ytId, ytThumb, type ShowItem } from "@/lib/types";
+
+/** "08:00" + "09:00" -> "8:00–9:00 AM" (same meridiem hove ta suffix ik vaari) */
+function fmtRange(s: string, e: string): string {
+  const a = fmtAmPm(s);
+  const b = fmtAmPm(e);
+  return a.slice(-2) === b.slice(-2) ? `${a.slice(0, -3)}–${b}` : `${a}–${b}`;
+}
 
 export function Equalizer({ playing, bars = 7, className = "" }: { playing: boolean; bars?: number; className?: string }) {
   const heights = useMemo(() => Array.from({ length: bars }, (_, i) => 0.35 + ((i * 37) % 65) / 100), [bars]);
@@ -44,6 +51,23 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
     return shows.filter((s) => isOnAir(s, nowT.getDay(), nowT.getHours() * 60 + nowT.getMinutes()));
   }, [shows, nowT]);
 
+  // ── Aaj da Program List (Punjab time) — main screen te bina scroll dikhe ──
+  // Admin de Programs time-table ton: aaj de din wale, time naal sort, CHAL RYA highlight
+  const allPrograms = useMemo(() => parsePrograms(settings.programs).filter((p) => p.active), [settings.programs]);
+  const currentProg = activeProgram(settings, nowT);
+  const todaysPrograms = useMemo(() => {
+    const day = nowT.getDay();
+    return allPrograms
+      .filter(
+        (p) =>
+          p.days
+            .split(",")
+            .map((d) => Number(d.trim()))
+            .includes(day) || timeWindowOn(p.start, p.end, p.days, nowT)
+      )
+      .sort((a, b) => toMin(a.start) - toMin(b.start));
+  }, [allPrograms, nowT]);
+
   const currentTrack = tracks.length > 0 ? tracks[index % tracks.length] : null;
   const artistImg =
     currentTrack && !liveOn ? artistImageFor(settings.artistImages, currentTrack.artist) : null;
@@ -79,6 +103,48 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
             Latest Punjabi te English music non-stop, fresh news updates, scheduled
             shows with YouTube videos — te saver saver murge da swagat!
           </p>
+
+          {/* Aaj da Program List — kine vaje ki program chalega (Punjab time), bina scroll */}
+          {todaysPrograms.length > 0 && (
+            <div
+              className="mt-4 rounded-xl border border-amber-400/25 bg-black/30 p-3 backdrop-blur-sm"
+              data-testid="program-list-strip"
+            >
+              <div className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-amber-400/90">
+                <CalendarClock className="h-3.5 w-3.5 shrink-0" />
+                Aaj da Program List
+                <span className="ml-auto font-medium normal-case tracking-normal text-amber-200/50">
+                  Punjab time
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {todaysPrograms.map((p) => {
+                  const isNow = currentProg?.id === p.id;
+                  const mins = nowT.getHours() * 60 + nowT.getMinutes();
+                  const s = toMin(p.start);
+                  const e = toMin(p.end);
+                  const isPast = !isNow && s < e && mins >= e; // overnight programs kade purane nahi dikhide
+                  return (
+                    <span
+                      key={p.id}
+                      title={`${p.title} • ${fmtAmPm(p.start)}–${fmtAmPm(p.end)} (Punjab time)`}
+                      className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold sm:text-xs ${
+                        isNow
+                          ? "border-emerald-400/60 bg-emerald-400/15 text-emerald-200"
+                          : isPast
+                            ? "border-amber-400/15 bg-black/20 text-amber-100/40"
+                            : "border-amber-400/30 bg-amber-400/5 text-amber-100/85"
+                      }`}
+                    >
+                      {isNow && <span className="live-dot h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />}
+                      <span className="shrink-0">{isNow ? "CHAL RYA • " : ""}{fmtRange(p.start, p.end)}</span>
+                      <span className="font-gur truncate font-semibold text-amber-300/90">• {p.title}</span>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Live player card — vertical photo (jive video player) jado Gurbani live chaldi + photo set.
               Manual ON ya time-table window — dono vich dikhegi. Eh card vi play/pause button hai. */}
