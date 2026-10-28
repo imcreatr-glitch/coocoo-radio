@@ -109,14 +109,15 @@ export default function ShowsTab() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <FieldLabel>Shuru time</FieldLabel>
+              <FieldLabel>Shuru time (Punjab)</FieldLabel>
               <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} data-testid="show-start" />
             </div>
             <div className="space-y-1.5">
-              <FieldLabel>Khatam time</FieldLabel>
+              <FieldLabel>Khatam time (Punjab)</FieldLabel>
               <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} data-testid="show-end" />
             </div>
           </div>
+          <p className="text-[11px] text-amber-100/50">🕐 Show da time Punjab (India) de hisaab naal — duniya de sare listeners ohda hi ON AIR vekhnge</p>
           <div className="space-y-1.5">
             <FieldLabel>Consar (din)</FieldLabel>
             <div className="flex flex-wrap gap-2" data-testid="show-days">
