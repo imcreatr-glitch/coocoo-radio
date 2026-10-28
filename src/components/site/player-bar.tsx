@@ -62,11 +62,12 @@ export default function PlayerBar() {
     try {
       const s = usePlayer.getState();
       if (isStream) {
-        // Manual BAND — jad tak admin dubara ON/AUTO na kare, window vi nahi chalugi
+        // Wapis AUTO — Time-Table (savere 4–8 / shaam 6–8) khud gurbani/songs switch karegi.
+        // (PERMANENT BAND sirf Admin Settings tab ch hai — eh button confusions bachaun layi AUTO karda)
         await adminFetch("/api/settings", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ liveMode: "auto", liveOverride: "off" }),
+          body: JSON.stringify({ liveMode: "auto", liveOverride: "" }),
         });
       } else {
         // Manual ON — jad tak admin BAND na kare gurbani chaldi rahegi
@@ -188,8 +189,8 @@ export default function PlayerBar() {
           <button
             type="button"
             onClick={gurbaniToggle}
-            aria-label={isStream ? "Gurbani BAND karo (manual)" : "Gurbani chalao (manual)"}
-            title={isStream ? "Gurbani BAND karo — manual (time-table vi pause)" : "Gurbani ON karo — manual"}
+            aria-label={isStream ? "Gurbani band karo — wapis AUTO Time-Table" : "Gurbani chalao (manual)"}
+            title={isStream ? "Gurbani band — wapis AUTO Time-Table (savere 4–8 / shaam 6–8)" : "Gurbani ON karo — manual"}
             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition ${
               isStream
                 ? "border-red-400/50 bg-red-500/20 text-red-300"
