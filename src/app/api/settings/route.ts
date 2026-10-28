@@ -21,6 +21,7 @@ const KEYS = [
   "tickerStyle",
   "gurbaniSchedule",
   "liveOverride",
+  "playlists",
   "programs",
   "audioAds",
 ] as const;
@@ -48,6 +49,7 @@ export async function GET() {
     tickerStyle: map.tickerStyle || "",
     gurbaniSchedule: map.gurbaniSchedule || "",
     liveOverride: map.liveOverride || "",
+    playlists: map.playlists || "",
     programs: map.programs || "",
     audioAds: map.audioAds || "",
   });
