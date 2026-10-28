@@ -13,7 +13,7 @@ import { MessageCircle, Send, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { isOnAir, type ShowItem } from "@/lib/types";
+import { isOnAir, nowIST, type ShowItem } from "@/lib/types";
 
 interface ChatMsg {
   id: string;
@@ -76,7 +76,7 @@ export default function LiveChat() {
         .then((r) => r.json())
         .then((shows: ShowItem[]) => {
           if (!Array.isArray(shows)) return;
-          const now = new Date();
+          const now = nowIST(); // ON AIR show PUNJAB time naal
           const day = now.getDay();
           const minutes = now.getHours() * 60 + now.getMinutes();
           const live = shows.find((s) => isOnAir(s, day, minutes));
