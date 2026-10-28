@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarClock, Loader2, Megaphone, Plus, Save, Trash2, Volume1 } from "lucide-react";
+import { CalendarClock, ListMusic, Loader2, Megaphone, Plus, Save, Trash2, Volume1 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePlayer } from "@/lib/store";
 import { adminFetch } from "@/lib/client-auth";
 import type { Song, StationSettings } from "@/lib/types";
-import { fmtAmPm, parseAudioAds, parsePrograms, type AudioAd, type Program } from "@/lib/types";
+import { fmtAmPm, parseAudioAds, parsePlaylists, parsePrograms, type AudioAd, type Playlist, type Program } from "@/lib/types";
 import { FieldLabel } from "@/components/admin/shared";
 
 function newId(prefix: string): string {
@@ -21,24 +21,114 @@ function newId(prefix: string): string {
   }
 }
 
+/** Songs chunno + ORDER set karo (checkbox = jodo, ▲▼ = order badlo, ✕ = kado) */
+function SongPicker({
+  songs,
+  pick,
+  setPick,
+}: {
+  songs: Song[];
+  pick: string[];
+  setPick: React.Dispatch<React.SetStateAction<string[]>>;
+}) {
+  const toggle = (id: string, on: boolean) => setPick((cur) => (on ? [...cur, id] : cur.filter((x) => x !== id)));
+  const move = (i: number, dir: -1 | 1) =>
+    setPick((cur) => {
+      const j = i + dir;
+      if (j < 0 || j >= cur.length) return cur;
+      const next = [...cur];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+  const find = (id: string) => songs.find((s) => s.id === id);
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" className="h-7 text-xs text-amber-200" onClick={() => setPick((cur) => (cur.length > 0 ? cur : songs.map((s) => s.id)))}>
+          Sab chuno
+        </Button>
+        <Button size="sm" variant="outline" className="h-7 text-xs text-amber-200" onClick={() => setPick([])}>
+          Saaf karo
+        </Button>
+        <span className="flex items-center text-xs text-amber-100/50">{pick.length} songs — ohde ORDER ch chalange (1, 2, 3...)</span>
+      </div>
+      {pick.length > 0 && (
+        <div className="nice-scroll max-h-40 space-y-1 overflow-y-auto rounded-lg border border-amber-400/25 bg-black/30 p-2">
+          {pick.map((id, i) => {
+            const s = find(id);
+            return (
+              <div key={`${id}-${i}`} className="flex items-center gap-1.5 rounded px-1.5 py-1 text-xs text-amber-100/80">
+                <span className="w-6 shrink-0 text-center font-mono font-bold text-amber-300">{i + 1}.</span>
+                <span className="min-w-0 flex-1 truncate">
+                  🎵 {s ? s.title : "(song nahi millya)"}
+                  {s?.artist ? ` — ${s.artist}` : ""}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Upar karo"
+                  onClick={() => move(i, -1)}
+                  disabled={i === 0}
+                  className="px-1 text-amber-200/70 hover:text-amber-100 disabled:opacity-25"
+                >
+                  ▲
+                </button>
+                <button
+                  type="button"
+                  aria-label="Thale karo"
+                  onClick={() => move(i, 1)}
+                  disabled={i === pick.length - 1}
+                  className="px-1 text-amber-200/70 hover:text-amber-100 disabled:opacity-25"
+                >
+                  ▼
+                </button>
+                <button type="button" aria-label="List ton kado" onClick={() => toggle(id, false)} className="px-1 text-red-300 hover:text-red-200">
+                  ✕
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <div className="nice-scroll max-h-44 space-y-1 overflow-y-auto rounded-lg border border-amber-400/15 bg-black/30 p-2">
+        {songs.length === 0 && <p className="p-2 text-xs text-amber-100/50">Songs load ho rahe ne...</p>}
+        {songs.map((s) => (
+          <label key={s.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs text-amber-100/80 hover:bg-amber-400/5">
+            <input type="checkbox" checked={pick.includes(s.id)} onChange={(e) => toggle(s.id, e.target.checked)} className="accent-amber-400" />
+            <span className="truncate">
+              🎵 {s.title}
+              {s.artist ? ` — ${s.artist}` : ""}
+            </span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ProgramsTab() {
   const { toast } = useToast();
   const refreshContext = usePlayer((s) => s.refreshContext);
 
   const [songs, setSongs] = useState<Song[]>([]);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
   const [ads, setAds] = useState<AudioAd[]>([]);
 
-  // nava program form
-  const [pTitle, setPTitle] = useState("");
-  const [pStart, setPStart] = useState("05:00");
-  const [pEnd, setPEnd] = useState("06:00");
-  const [pPick, setPPick] = useState<string[]>([]);
-  const [pSaving, setPSaving] = useState(false);
+  // navi playlist form
+  const [plTitle, setPlTitle] = useState("");
+  const [plPick, setPlPick] = useState<string[]>([]);
+  const [plSaving, setPlSaving] = useState(false);
+  // playlist edit (naam + order badlo)
+  const [openPlId, setOpenPlId] = useState<string | null>(null);
+  const [editPlTitle, setEditPlTitle] = useState("");
+  const [editPlPick, setEditPlPick] = useState<string[]>([]);
 
-  // kisse purane program de songs badlo (edit mode)
-  const [editId, setEditId] = useState<string | null>(null);
-  const [editPick, setEditPick] = useState<string[]>([]);
+  // nava program form
+  const [prTitle, setPrTitle] = useState("");
+  const [prPl, setPrPl] = useState("");
+  const [prStart, setPrStart] = useState("05:00");
+  const [prEnd, setPrEnd] = useState("06:00");
+  const [prSaving, setPrSaving] = useState(false);
 
   // navi audio ad form
   const [aTitle, setATitle] = useState("");
@@ -50,6 +140,7 @@ export default function ProgramsTab() {
     fetch("/api/settings", { cache: "no-store" })
       .then((r) => r.json() as Promise<StationSettings>)
       .then((data) => {
+        setPlaylists(parsePlaylists(data.playlists));
         setPrograms(parsePrograms(data.programs));
         setAds(parseAudioAds(data.audioAds));
       })
@@ -60,81 +151,145 @@ export default function ProgramsTab() {
       .catch(() => {});
   }, []);
 
-  /** PUT programs JSON + player context refresh */
-  const savePrograms = async (next: Program[], okMsg: string) => {
+  const putSetting = async (key: string, value: string) => {
     const res = await adminFetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ programs: JSON.stringify(next) }),
+      body: JSON.stringify({ [key]: value }),
     });
     if (!res.ok) throw new Error("Save fail");
-    setPrograms(next);
     await refreshContext();
+  };
+
+  const savePlaylists = async (next: Playlist[], okMsg: string) => {
+    await putSetting("playlists", JSON.stringify(next));
+    setPlaylists(next);
+    toast({ title: okMsg });
+  };
+
+  const savePrograms = async (next: Program[], okMsg: string) => {
+    await putSetting("programs", JSON.stringify(next));
+    setPrograms(next);
     toast({ title: okMsg });
   };
 
   const saveAds = async (next: AudioAd[], okMsg: string) => {
-    const res = await adminFetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ audioAds: JSON.stringify(next) }),
-    });
-    if (!res.ok) throw new Error("Save fail");
+    await putSetting("audioAds", JSON.stringify(next));
     setAds(next);
-    await refreshContext();
     toast({ title: okMsg });
   };
 
-  const addProgram = async () => {
-    if (!pTitle.trim()) {
-      toast({ title: "Program da naam likho", variant: "destructive" });
+  // ── playlists ──
+  const addPlaylist = async () => {
+    if (!plTitle.trim()) {
+      toast({ title: "Playlist da naam likho", variant: "destructive" });
       return;
     }
-    if (pPick.length === 0) {
-      toast({ title: "Ohde songs chuno (1 ja vadh)", variant: "destructive" });
-      return;
-    }
-    setPSaving(true);
-    try {
-      const prog: Program = {
-        id: newId("prog"),
-        title: pTitle.trim(),
-        start: pStart || "05:00",
-        end: pEnd || "06:00",
-        days: "0,1,2,3,4,5,6",
-        songIds: JSON.stringify(pPick),
-        active: true,
-      };
-      await savePrograms([...programs, prog], `📻 "${prog.title}" jud gaya — ${fmtAmPm(prog.start)}–${fmtAmPm(prog.end)} te auto chalega!`);
-      setPTitle("");
-      setPStart("05:00");
-      setPEnd("06:00");
-      setPPick([]);
-    } catch {
-      toast({ title: "Add nahi hoya — dubara koshish karo", variant: "destructive" });
-    } finally {
-      setPSaving(false);
-    }
-  };
-
-  const saveEditSongs = async (prog: Program) => {
-    if (editPick.length === 0) {
+    if (plPick.length === 0) {
       toast({ title: "Kalle 1 song vi chuno", variant: "destructive" });
       return;
     }
+    setPlSaving(true);
     try {
-      const next = programs.map((p) => (p.id === prog.id ? { ...p, songIds: JSON.stringify(editPick) } : p));
-      await savePrograms(next, "📻 Program de songs badal gaye!");
-      setEditId(null);
-      setEditPick([]);
+      const pl: Playlist = { id: newId("pl"), title: plTitle.trim(), songIds: plPick };
+      await savePlaylists([...playlists, pl], `📃 "${pl.title}" playlist ban gayi — ${pl.songIds.length} songs (order vich)!`);
+      setPlTitle("");
+      setPlPick([]);
+    } catch {
+      toast({ title: "Add nahi hoya — dubara koshish karo", variant: "destructive" });
+    } finally {
+      setPlSaving(false);
+    }
+  };
+
+  const openEditPlaylist = (pl: Playlist) => {
+    if (openPlId === pl.id) {
+      setOpenPlId(null);
+      return;
+    }
+    setOpenPlId(pl.id);
+    setEditPlTitle(pl.title);
+    setEditPlPick([...pl.songIds]);
+  };
+
+  const saveEditPlaylist = async (pl: Playlist) => {
+    if (!editPlTitle.trim() || editPlPick.length === 0) {
+      toast({ title: "Naam te kalle 1 song vi chahide", variant: "destructive" });
+      return;
+    }
+    try {
+      const next = playlists.map((p) => (p.id === pl.id ? { ...p, title: editPlTitle.trim(), songIds: editPlPick } : p));
+      await savePlaylists(next, "📃 Playlist badal gayi!");
+      setOpenPlId(null);
     } catch {
       toast({ title: "Save nahi hoya", variant: "destructive" });
+    }
+  };
+
+  const delPlaylist = async (pl: Playlist) => {
+    try {
+      await savePlaylists(
+        playlists.filter((p) => p.id !== pl.id),
+        "📃 Playlist kadh ditti (program jehda ohdi varatda si — oh hun sab songs chalauga)"
+      );
+    } catch {
+      toast({ title: "Delete nahi hoya", variant: "destructive" });
+    }
+  };
+
+  // ── programs ──
+  const plName = (prog: Program) => {
+    if (prog.playlistId) {
+      const pl = playlists.find((p) => p.id === prog.playlistId);
+      return pl ? pl.title : "(playlist kadh ditti — navi chuno)";
+    }
+    return "(purane embedded songs)";
+  };
+
+  const addProgram = async () => {
+    if (!prTitle.trim()) {
+      toast({ title: "Program da naam likho", variant: "destructive" });
+      return;
+    }
+    if (!prPl) {
+      toast({ title: "Playlist chuno", variant: "destructive" });
+      return;
+    }
+    setPrSaving(true);
+    try {
+      const prog: Program = {
+        id: newId("prog"),
+        title: prTitle.trim(),
+        playlistId: prPl,
+        start: prStart || "05:00",
+        end: prEnd || "06:00",
+        days: "0,1,2,3,4,5,6",
+        songIds: "[]",
+        active: true,
+      };
+      await savePrograms([...programs, prog], `📻 "${prog.title}" jud gaya — ${fmtAmPm(prog.start)}–${fmtAmPm(prog.end)} te auto chalega!`);
+      setPrTitle("");
+      setPrPl("");
+      setPrStart("05:00");
+      setPrEnd("06:00");
+    } catch {
+      toast({ title: "Add nahi hoya — dubara koshish karo", variant: "destructive" });
+    } finally {
+      setPrSaving(false);
     }
   };
 
   const toggleProgram = async (prog: Program, active: boolean) => {
     try {
       await savePrograms(programs.map((p) => (p.id === prog.id ? { ...p, active } : p)), active ? "📻 Program ON" : "📻 Program OFF");
+    } catch {
+      toast({ title: "Nahi hoya", variant: "destructive" });
+    }
+  };
+
+  const changeProgPlaylist = async (prog: Program, playlistId: string) => {
+    try {
+      await savePrograms(programs.map((p) => (p.id === prog.id ? { ...p, playlistId: playlistId || undefined } : p)), "📻 Program di playlist badal gayi!");
     } catch {
       toast({ title: "Nahi hoya", variant: "destructive" });
     }
@@ -148,6 +303,7 @@ export default function ProgramsTab() {
     }
   };
 
+  // ── audio ads ──
   const addAd = async () => {
     if (!aTitle.trim() || !aUrl.trim()) {
       toast({ title: "Ad da naam te MP3 link dono pao", variant: "destructive" });
@@ -195,61 +351,94 @@ export default function ProgramsTab() {
     }
   };
 
-  const songCount = (prog: Program) => {
-    try {
-      const ids = JSON.parse(prog.songIds || "[]") as string[];
-      return Array.isArray(ids) ? ids.length : 0;
-    } catch {
-      return 0;
-    }
-  };
-
   return (
     <div className="space-y-6">
-      {/* ── Programs — auto-play time-table ── */}
-      <div className="rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)] p-5" data-testid="programs-manager">
+      {/* ── Playlists — ordered lists ── */}
+      <div className="rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)] p-5" data-testid="playlists-manager">
         <h3 className="mb-1 flex items-center gap-2 text-base font-bold text-amber-100">
-          <CalendarClock className="h-4.5 w-4.5 text-amber-400" /> 📻 Programs (Auto Time-Table)
+          <ListMusic className="h-4.5 w-4.5 text-amber-400" /> 📃 Playlists (Ginte naal order)
         </h3>
         <p className="mb-3 text-xs text-amber-100/60">
-          Program banao — <b className="text-amber-300">naam + time + songs chuno</b>. Ohde time te (Punjab time) player khud ohde songs chaluga,
-          program mukke te wapis apne sab songs. Jiven: <i>&quot;Old Songs 5–6&quot;</i>, <i>&quot;Podcast 6–7&quot;</i>, <i>&quot;Gurbani Katha 7–8&quot;</i>.
-          Podcast/old songs vi song vangar hi upload kar sakde ho (singer = Podcast), fer program ch chuno.
+          Jinni marzi playlists banao — <b className="text-amber-300">naam pao te songs chuno</b> (song, podcast, gurbani vichar — kuj vi jo songs vich upload hoya).
+          Jithe number ohda order — <b className="text-amber-300">1, 2, 3... radio vangu ohde hisaab nal chalange</b>. ▲▼ naal order badlo.
+        </p>
+
+        {playlists.length > 0 && (
+          <div className="nice-scroll mb-4 space-y-2">
+            {playlists.map((pl) => (
+              <div key={pl.id} className="rounded-xl border border-amber-400/10 bg-black/25 px-3 py-2.5" data-testid="playlist-row">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-amber-50">📃 {pl.title}</p>
+                    <p className="truncate text-xs text-amber-100/50">🎵 {pl.songIds.length} songs (order vich)</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 border-amber-400/30 text-xs text-amber-200"
+                    onClick={() => openEditPlaylist(pl)}
+                  >
+                    {openPlId === pl.id ? "Band karo" : "Naam/Order badlo"}
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`${pl.title} kado`}
+                    onClick={() => delPlaylist(pl)}
+                    className="h-8 w-8 shrink-0 text-red-300 hover:bg-red-400/15"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                {openPlId === pl.id && (
+                  <div className="mt-2 space-y-2 border-t border-amber-400/15 pt-2">
+                    <Input value={editPlTitle} onChange={(e) => setEditPlTitle(e.target.value)} placeholder="Playlist da naam" aria-label="Playlist da naam" />
+                    <SongPicker songs={songs} pick={editPlPick} setPick={setEditPlPick} />
+                    <Button size="sm" onClick={() => saveEditPlaylist(pl)} className="border-0 bg-gradient-to-r from-amber-400 to-orange-500 text-xs font-bold text-black">
+                      <Save className="mr-1 h-3.5 w-3.5" /> Playlist save karo
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="space-y-2 border-t border-amber-400/15 pt-3">
+          <p className="text-xs font-bold uppercase tracking-wide text-amber-300/80">Navi playlist banao</p>
+          <Input value={plTitle} onChange={(e) => setPlTitle(e.target.value)} placeholder="Playlist da naam (jiven: Savere Old Songs)" data-testid="playlist-title" />
+          <SongPicker songs={songs} pick={plPick} setPick={setPlPick} />
+          <Button onClick={addPlaylist} disabled={plSaving} data-testid="playlist-add" className="border-0 bg-gradient-to-r from-amber-400 to-orange-500 font-bold text-black">
+            {plSaving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}
+            Playlist banao
+          </Button>
+        </div>
+      </div>
+
+      {/* ── Programs — playlist + time window ── */}
+      <div className="rounded-2xl border border-amber-400/20 bg-[color:var(--bg-card)] p-5" data-testid="programs-manager">
+        <h3 className="mb-1 flex items-center gap-2 text-base font-bold text-amber-100">
+          <CalendarClock className="h-4.5 w-4.5 text-amber-400" /> 📻 Programs (Playlist da Time-Table)
+        </h3>
+        <p className="mb-3 text-xs text-amber-100/60">
+          Program banao — <b className="text-amber-300">naam + playlist + time</b>. Us time te (Punjab time) player khud us playlist de songs
+          <b className="text-amber-300"> ginte naal</b> chaluga. <b className="text-amber-300">Refresh te vi ohvi song bajega jo us vele chal rya hovega</b> — list shuru ton kabbo nahi (sachchi radio vangu).
         </p>
 
         {programs.length > 0 && (
           <div className="nice-scroll mb-4 space-y-2">
             {programs.map((prog) => (
-              <div key={prog.id} className="rounded-xl border border-amber-400/10 bg-black/25 px-3 py-2.5" data-testid={`program-row`}>
+              <div key={prog.id} className="rounded-xl border border-amber-400/10 bg-black/25 px-3 py-2.5" data-testid="program-row">
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-amber-50">
                       📻 {prog.title} {!prog.active && <span className="text-xs font-normal text-amber-100/40">(band hai)</span>}
                     </p>
                     <p className="truncate text-xs text-amber-100/50">
-                      ⏰ {fmtAmPm(prog.start)} – {fmtAmPm(prog.end)} Punjab • 🎵 {songCount(prog)} songs
+                      ⏰ {fmtAmPm(prog.start)} – {fmtAmPm(prog.end)} Punjab • 📃 {plName(prog)}
                     </p>
                   </div>
-                  <Switch
-                    checked={prog.active}
-                    onCheckedChange={(v) => toggleProgram(prog, v)}
-                    aria-label={`${prog.title} ON/OFF`}
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 border-amber-400/30 text-xs text-amber-200"
-                    onClick={() => {
-                      setEditId(editId === prog.id ? null : prog.id);
-                      try {
-                        setEditPick(JSON.parse(prog.songIds || "[]") as string[]);
-                      } catch {
-                        setEditPick([]);
-                      }
-                    }}
-                  >
-                    {editId === prog.id ? "Band karo" : "Songs badlo"}
-                  </Button>
+                  <Switch checked={prog.active} onCheckedChange={(v) => toggleProgram(prog, v)} aria-label={`${prog.title} ON/OFF`} />
                   <Button
                     size="icon"
                     variant="ghost"
@@ -260,34 +449,22 @@ export default function ProgramsTab() {
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-                {editId === prog.id && (
-                  <div className="mt-2 border-t border-amber-400/15 pt-2">
-                    <div className="mb-2 flex gap-2">
-                      <Button size="sm" variant="outline" className="h-7 text-xs text-amber-200" onClick={() => setEditPick(songs.map((s) => s.id))}>
-                        Sab chuno
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-7 text-xs text-amber-200" onClick={() => setEditPick([])}>
-                        Saaf karo
-                      </Button>
-                    </div>
-                    <div className="nice-scroll max-h-48 space-y-1 overflow-y-auto rounded-lg border border-amber-400/15 bg-black/30 p-2">
-                      {songs.map((s) => (
-                        <label key={s.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs text-amber-100/80 hover:bg-amber-400/5">
-                          <input
-                            type="checkbox"
-                            checked={editPick.includes(s.id)}
-                            onChange={(e) => setEditPick((cur) => (e.target.checked ? [...cur, s.id] : cur.filter((x) => x !== s.id)))}
-                            className="accent-amber-400"
-                          />
-                          <span className="truncate">🎵 {s.title} {s.artist ? `— ${s.artist}` : ""}</span>
-                        </label>
-                      ))}
-                    </div>
-                    <Button size="sm" onClick={() => saveEditSongs(prog)} className="mt-2 border-0 bg-gradient-to-r from-amber-400 to-orange-500 text-xs font-bold text-black">
-                      <Save className="mr-1 h-3.5 w-3.5" /> Songs save karo
-                    </Button>
-                  </div>
-                )}
+                <div className="mt-2 flex items-center gap-2 border-t border-amber-400/15 pt-2">
+                  <span className="text-xs text-amber-100/50">Playlist badlo:</span>
+                  <select
+                    value={prog.playlistId || ""}
+                    onChange={(e) => changeProgPlaylist(prog, e.target.value)}
+                    aria-label={`${prog.title} di playlist`}
+                    className="max-w-[220px] flex-1 rounded-lg border border-amber-400/30 bg-black/40 px-2 py-1.5 text-xs text-amber-50 [color-scheme:dark]"
+                  >
+                    <option value="">— Playlist chuno —</option>
+                    {playlists.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             ))}
           </div>
@@ -295,14 +472,33 @@ export default function ProgramsTab() {
 
         <div className="space-y-2 border-t border-amber-400/15 pt-3">
           <p className="text-xs font-bold uppercase tracking-wide text-amber-300/80">Nava program banao</p>
-          <div className="grid gap-2 sm:grid-cols-[1.4fr_0.8fr_0.8fr]">
-            <Input value={pTitle} onChange={(e) => setPTitle(e.target.value)} placeholder="Program da naam (jiven: Savere Old Songs)" data-testid="program-title" />
+          <div className="grid gap-2 sm:grid-cols-[1.2fr_1fr_0.7fr_0.7fr]">
+            <div>
+              <FieldLabel>Naam</FieldLabel>
+              <Input value={prTitle} onChange={(e) => setPrTitle(e.target.value)} placeholder="jiven: Savere Old Songs" data-testid="program-title" />
+            </div>
+            <div>
+              <FieldLabel>Playlist</FieldLabel>
+              <select
+                value={prPl}
+                onChange={(e) => setPrPl(e.target.value)}
+                aria-label="Program di playlist"
+                className="w-full rounded-lg border border-amber-400/30 bg-black/40 px-2 py-2 text-sm text-amber-50 [color-scheme:dark]"
+              >
+                <option value="">— Chuno —</option>
+                {playlists.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div>
               <FieldLabel>Shuru (Punjab)</FieldLabel>
               <input
                 type="time"
-                value={pStart}
-                onChange={(e) => setPStart(e.target.value)}
+                value={prStart}
+                onChange={(e) => setPrStart(e.target.value)}
                 className="w-full rounded-lg border border-amber-400/30 bg-black/40 px-2 py-2 text-sm text-amber-50 [color-scheme:dark]"
                 aria-label="Program shuru time"
               />
@@ -311,41 +507,15 @@ export default function ProgramsTab() {
               <FieldLabel>Khatam (Punjab)</FieldLabel>
               <input
                 type="time"
-                value={pEnd}
-                onChange={(e) => setPEnd(e.target.value)}
+                value={prEnd}
+                onChange={(e) => setPrEnd(e.target.value)}
                 className="w-full rounded-lg border border-amber-400/30 bg-black/40 px-2 py-2 text-sm text-amber-50 [color-scheme:dark]"
                 aria-label="Program akhri time"
               />
             </div>
           </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" className="h-8 text-xs text-amber-200" onClick={() => setPPick(songs.map((s) => s.id))}>
-              Sab songs chuno
-            </Button>
-            <Button size="sm" variant="outline" className="h-8 text-xs text-amber-200" onClick={() => setPPick([])}>
-              Saaf karo
-            </Button>
-            <span className="flex items-center text-xs text-amber-100/50">{pPick.length} songs chune ne</span>
-          </div>
-
-          <div className="nice-scroll max-h-48 space-y-1 overflow-y-auto rounded-lg border border-amber-400/15 bg-black/30 p-2">
-            {songs.length === 0 && <p className="p-2 text-xs text-amber-100/50">Songs load ho rahe ne...</p>}
-            {songs.map((s) => (
-              <label key={s.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs text-amber-100/80 hover:bg-amber-400/5">
-                <input
-                  type="checkbox"
-                  checked={pPick.includes(s.id)}
-                  onChange={(e) => setPPick((cur) => (e.target.checked ? [...cur, s.id] : cur.filter((x) => x !== s.id)))}
-                  className="accent-amber-400"
-                />
-                <span className="truncate">🎵 {s.title} {s.artist ? `— ${s.artist}` : ""}</span>
-              </label>
-            ))}
-          </div>
-
-          <Button onClick={addProgram} disabled={pSaving} data-testid="program-add" className="border-0 bg-gradient-to-r from-amber-400 to-orange-500 font-bold text-black">
-            {pSaving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}
+          <Button onClick={addProgram} disabled={prSaving} data-testid="program-add" className="border-0 bg-gradient-to-r from-amber-400 to-orange-500 font-bold text-black">
+            {prSaving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}
             Program add karo
           </Button>
         </div>
@@ -358,7 +528,7 @@ export default function ProgramsTab() {
         </h3>
         <p className="mb-3 text-xs text-amber-100/60">
           Ad da <b className="text-amber-300">naam + time + MP3 link</b> pao. Us time te (Punjab time) <b className="text-amber-300">song di awaaj apne aap down</b> ho jaugegi,
-          ad chalegi — ad jitni der di hai ohni der baad <b className="text-amber-300">song di awaaj wapis normal</b>. Jiven 5:15 te 20 sec di ad — 5:15:00 song halka, ad bajegi, 20 sec baad sab normal. Roz chalegi (din ch ek vaar).
+          ad chalegi — ad jitni der di hai ohni der baad <b className="text-amber-300">song di awaaj wapis normal</b>. Roz chalegi (din ch ek vaar).
         </p>
 
         {ads.length > 0 && (
@@ -417,9 +587,9 @@ export default function ProgramsTab() {
         </div>
       </div>
 
-      {programs.length === 0 && ads.length === 0 && (
+      {playlists.length === 0 && programs.length === 0 && ads.length === 0 && (
         <Badge variant="outline" className="border-amber-400/30 text-[10px] uppercase text-amber-300/70">
-          Hun koi program ja ad nahi — radio 24x7 apne sab songs chal rahi hai
+          Hun koi playlist/program/ad nahi — radio 24x7 apne sab songs chal rahi hai
         </Badge>
       )}
     </div>
