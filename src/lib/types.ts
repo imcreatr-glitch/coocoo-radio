@@ -160,7 +160,17 @@ export function parseGurbaniSchedule(raw: string | undefined | null): GurbaniSch
   }
 }
 
-/** Kya `date` kisi schedule window vich aunda? Overnight windows (22:00-04:00) vi handle karde */
+/** Hun-da PUNJAB (India, IST = UTC+5:30) wall-clock Date — visitor kisi vi desh ch hove
+ *  (USA, Canada, UK...), isdia .getHours()/.getMinutes()/.getDay() hamesha India de
+ *  time utte chalange. India ch DST nahi hunda, is lyi fixed +5:30 offset hamesha sahi.
+ *  Eh schedule windows, ON AIR check te live clock sab lia anchor hai. */
+export function nowIST(): Date {
+  const n = new Date();
+  return new Date(n.getTime() + (n.getTimezoneOffset() + 330) * 60000);
+}
+
+/** Kya `date` kisi schedule window vich aunda? Overnight windows (22:00-04:00) vi handle karde.
+ *  ⚠️ `date` hamesha nowIST() (Punjab time) hona chahida — visitor local time nahi. */
 export function inGurbaniWindow(sched: GurbaniSchedule, date: Date): boolean {
   if (!sched.enabled || sched.windows.length === 0) return false;
   const mins = date.getHours() * 60 + date.getMinutes();
@@ -173,10 +183,11 @@ export function inGurbaniWindow(sched: GurbaniSchedule, date: Date): boolean {
   });
 }
 
-/** Kya hun Gurbani live chalni chahidi? Manual stream hamesha jeet; warna schedule window. */
+/** Kya hun Gurbani live chalni chahidi? Manual stream hamesha jeet; warna schedule window.
+ *  Hamesha PUNJAB (IST) time naal decide hunda — chahe visitor kisi vi desh ch hove. */
 export function isLiveOn(
   settings: Pick<StationSettings, "liveMode" | "liveUrl" | "gurbaniSchedule">,
-  now: Date = new Date()
+  now: Date = nowIST()
 ): boolean {
   if (settings.liveMode === "stream" && !!settings.liveUrl) return true; // manual ON hamesha jeet
   if (!settings.liveUrl) return false;
