@@ -2,7 +2,17 @@
 
 import { create } from "zustand";
 import type { Song, StationSettings } from "@/lib/types";
-import { activeProgram, DEFAULT_SETTINGS, isLiveOn, nowIST, parseAudioAds, toMin } from "@/lib/types";
+import {
+  activeProgram,
+  anchoredIndex,
+  DEFAULT_SETTINGS,
+  isLiveOn,
+  nowIST,
+  parseAudioAds,
+  playlistQueue,
+  programElapsedMin,
+  toMin,
+} from "@/lib/types";
 
 interface PlayerState {
   audio: HTMLAudioElement | null;
@@ -16,23 +26,27 @@ interface PlayerState {
   bootstrapped: boolean;
   progKey: string; // active program id ("" = koi nahi) — change hove ta queue khud badaldi hai
   adTitle: string; // hun chal rahi audio ad ("" = koi nahi) — song awaaj ducked hai is vele
+
+  initAudio: () => void;
+  refreshContext: () => Promise<void>;
+  play: () => void;
+  pause: () => void;
+  toggle: () => void;
+  next: () => void;
+  prev: () => void;
+  setVolume: (v: number) => void;
+  playIndex: (i: number) => void;
+  playSong: (id: string) => void;
+  playSongNow: (song: Song) => void;
 }
 
-/** Order songs: (1) active program di list (Punjab time naal), (2) admin playlist, (3) all songs. */
+/** Order songs: (1) active program di playlist (Punjab time naal), (2) admin playlist, (3) all songs. */
 function buildQueue(settings: StationSettings, songs: Song[], now?: Date): Song[] {
   const d = now || nowIST();
   const prog = activeProgram(settings, d);
   if (prog) {
-    try {
-      const ids = JSON.parse(prog.songIds || "[]") as string[];
-      if (Array.isArray(ids) && ids.length > 0) {
-        const byId = new Map(songs.map((s) => [s.id, s]));
-        const q = ids.map((id) => byId.get(id)).filter((s): s is Song => !!s);
-        if (q.length > 0) return q;
-      }
-    } catch {
-      /* bad songIds JSON — fallback thale */
-    }
+    const q = playlistQueue(prog, settings, songs);
+    if (q.length > 0) return q;
   }
   const raw = (settings.playlist || "").trim();
   if (!raw) return songs;
@@ -155,12 +169,16 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     setInterval(() => {
       const s = get();
       const now = nowIST();
-      // (1) Program window shuru/muki? Queue khud badal jaugegi (Punjab time)
+      // (1) Program window shuru/muki? Queue khud badal jaugegi (Punjab time).
+      //     Nava program shuru hove ta position TIME ton anchor hovegi (radio-sync) —
+      //     har listener nu ohda hi song sunai devega, list shuru ton nahi.
       const key = progKeyOf(s.settings, now);
       if (key !== s.progKey && s.allSongs.length > 0) {
         const ordered = buildQueue(s.settings, s.allSongs, now);
         if (ordered.length > 0) {
-          set({ progKey: key, tracks: ordered, index: s.index % ordered.length });
+          const prog = activeProgram(s.settings, now);
+          const idx = prog ? anchoredIndex(ordered.length, programElapsedMin(prog, now)) : s.index % ordered.length;
+          set({ progKey: key, tracks: ordered, index: idx });
         } else {
           set({ progKey: key });
         }
@@ -191,7 +209,17 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       const wasPlaying = get().playing;
       const all = Array.isArray(songs) ? songs : [];
       const ordered = buildQueue(settings, all);
-      set({ settings, allSongs: all, tracks: ordered, progKey: progKeyOf(settings), bootstrapped: true });
+      const first = !get().bootstrapped;
+      const now = nowIST();
+      // RADIO-SYNC: pehli load te (ja refresh te) position TIME ton anchor hove —
+      // ohvi song bajega jo is vele radio ch chal rya hai, list shuru ton nahi.
+      let startIndex = ordered.length > 0 ? ((get().index % ordered.length) + ordered.length) % ordered.length : 0;
+      if (first && ordered.length > 0) {
+        const prog = activeProgram(settings, now);
+        const elapsed = prog ? programElapsedMin(prog, now) : now.getHours() * 60 + now.getMinutes();
+        startIndex = anchoredIndex(ordered.length, elapsed);
+      }
+      set({ settings, allSongs: all, tracks: ordered, progKey: progKeyOf(settings), bootstrapped: true, index: startIndex });
       const audio = get().audio;
       if (!audio) return;
       const src = loadSrc(get());
