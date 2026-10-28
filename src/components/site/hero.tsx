@@ -102,12 +102,13 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
               >
                 <img src={settings.liveImage} alt={settings.liveTitle || "Live"} className="h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/20" />
+                {/* Play/pause CORNER badge (top-right) — photo dhaka nahi rehnda; thale info bar hai */}
                 <span
-                  className={`absolute inset-0 m-auto flex h-9 w-9 items-center justify-center rounded-full text-white backdrop-blur-[2px] ${
-                    playing ? "bg-black/40" : "bg-black/60"
+                  className={`absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-white/40 text-white backdrop-blur-[2px] ${
+                    playing ? "bg-black/35" : "bg-black/75"
                   }`}
                 >
-                  {playing ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
+                  {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="ml-px h-3.5 w-3.5" />}
                 </span>
                 <div className="absolute inset-x-0 bottom-0 flex items-center gap-1.5 p-2">
                   <Badge className="live-dot gap-1 border-0 bg-red-600 px-1.5 py-0 text-[8px] font-bold text-white">
@@ -154,12 +155,13 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
                         alt={currentTrack?.artist || "Singer"}
                         className="h-20 w-20 rounded-full border-2 border-black/40 object-cover sm:h-24 sm:w-24"
                       />
+                      {/* Play/pause CORNER badge (bottom-right) — photo da chehra vich ch nahi dhakda */}
                       <span
-                        className={`absolute inset-0 m-auto flex h-9 w-9 items-center justify-center rounded-full text-white backdrop-blur-[2px] ${
-                          playing ? "bg-black/40" : "bg-black/60"
+                        className={`absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border border-white/40 text-white shadow-[0_2px_10px_rgba(0,0,0,0.45)] backdrop-blur-[2px] ${
+                          playing ? "bg-black/35" : "bg-black/75"
                         }`}
                       >
-                        {playing ? <Pause className="h-5 w-5" /> : <Play className="ml-0.5 h-5 w-5" />}
+                        {playing ? <Pause className="h-4 w-4" /> : <Play className="ml-px h-4 w-4" />}
                       </span>
                     </>
                   ) : (
