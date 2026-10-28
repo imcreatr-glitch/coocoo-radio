@@ -18,6 +18,8 @@ const KEYS = [
   "donationQr",
   "onAirVideo",
   "theme",
+  "tickerStyle",
+  "gurbaniSchedule",
 ] as const;
 
 export async function GET() {
@@ -40,6 +42,8 @@ export async function GET() {
     donationQr: map.donationQr || "",
     onAirVideo: map.onAirVideo || "",
     theme: map.theme || "",
+    tickerStyle: map.tickerStyle || "",
+    gurbaniSchedule: map.gurbaniSchedule || "",
   });
 }
 
