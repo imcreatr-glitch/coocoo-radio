@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Eye, EyeOff, Inbox, Loader2, Lock, LogOut, Megaphone, Music, Newspaper, Radio, Settings, Tv, X } from "lucide-react";
+import { Eye, EyeOff, Inbox, Loader2, Lock, LogOut, CalendarClock, Megaphone, Music, Newspaper, Radio, Settings, Tv, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import { adminFetch, clearToken, setToken } from "@/lib/client-auth";
 import SongsTab from "@/components/admin/songs-tab";
 import NewsTab from "@/components/admin/news-tab";
 import ShowsTab from "@/components/admin/shows-tab";
+import ProgramsTab from "@/components/admin/programs-tab";
 import AdsTab from "@/components/admin/ads-tab";
 import MessagesTab from "@/components/admin/messages-tab";
 import SettingsTab from "@/components/admin/settings-tab";
@@ -183,6 +184,9 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
               <TabsTrigger value="shows" className="gap-1.5 data-[state=active]:bg-amber-400 data-[state=active]:text-black">
                 <Tv className="h-3.5 w-3.5" /> Shows
               </TabsTrigger>
+              <TabsTrigger value="programs" className="gap-1.5 data-[state=active]:bg-amber-400 data-[state=active]:text-black">
+                <CalendarClock className="h-3.5 w-3.5" /> Programs
+              </TabsTrigger>
               <TabsTrigger value="ads" className="gap-1.5 data-[state=active]:bg-amber-400 data-[state=active]:text-black">
                 <Megaphone className="h-3.5 w-3.5" /> Ads
               </TabsTrigger>
@@ -202,6 +206,9 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
             </TabsContent>
             <TabsContent value="shows">
               <ShowsTab />
+            </TabsContent>
+            <TabsContent value="programs">
+              <ProgramsTab />
             </TabsContent>
             <TabsContent value="ads">
               <AdsTab />
