@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Pause, Play, Radio, Sunrise, Tv } from "lucide-react";
+import { Clock, Pause, Play, Radio, Sunrise, Tv } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { usePlayer } from "@/lib/store";
-import { artistImageFor, isOnAir, parsePlayerStyle, ytId, ytThumb, type ShowItem } from "@/lib/types";
+import { useNow } from "@/lib/use-now";
+import { artistImageFor, isLiveOn, isOnAir, nowAmPm, parsePlayerStyle, ytId, ytThumb, type ShowItem } from "@/lib/types";
 
 export function Equalizer({ playing, bars = 7, className = "" }: { playing: boolean; bars?: number; className?: string }) {
   const heights = useMemo(() => Array.from({ length: bars }, (_, i) => 0.35 + ((i * 37) % 65) / 100), [bars]);
@@ -38,11 +39,13 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
     return shows.filter((s) => isOnAir(s, now.getDay(), now.getHours() * 60 + now.getMinutes()));
   }, [shows]);
 
+  // Gurbani live ON? Manual stream ya time-table window — dono check karda
+  const nowT = useNow(30000);
+  const liveOn = isLiveOn(settings, nowT);
+
   const currentTrack = tracks.length > 0 ? tracks[index % tracks.length] : null;
   const artistImg =
-    currentTrack && settings.liveMode !== "stream"
-      ? artistImageFor(settings.artistImages, currentTrack.artist)
-      : null;
+    currentTrack && !liveOn ? artistImageFor(settings.artistImages, currentTrack.artist) : null;
   const pStyle = parsePlayerStyle(settings.playerStyle);
 
   return (
@@ -76,9 +79,9 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
             shows with YouTube videos — te saver saver murge da swagat!
           </p>
 
-          {/* Live player card — vertical photo (jive video player) when stream mode + photo set.
-              Eh card vi play/pause button hai — singer photo warga: state icon + color ring. */}
-          {settings.liveMode === "stream" && settings.liveImage && (() => {
+          {/* Live player card — vertical photo (jive video player) jado Gurbani live chaldi + photo set.
+              Manual ON ya time-table window — dono vich dikhegi. Eh card vi play/pause button hai. */}
+          {liveOn && settings.liveImage && (() => {
             const liveStateColor = playing ? pStyle.playColor : pStyle.pauseColor;
             return (
               <motion.div
@@ -110,7 +113,10 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
                     LIVE
                   </Badge>
                   <span className="truncate text-[10px] font-bold leading-tight text-white">{settings.liveTitle || "Darbar Sahib Live"}</span>
-                  <Equalizer playing={playing} bars={3} className="ml-auto h-2.5" />
+                  <span className="ml-auto flex shrink-0 items-center gap-0.5 font-mono text-[9px] font-bold text-white/90">
+                    <Clock className="h-2.5 w-2.5" /> {nowAmPm(nowT)}
+                  </span>
+                  <Equalizer playing={playing} bars={3} className="h-2.5 shrink-0" />
                 </div>
               </motion.div>
             );
@@ -121,9 +127,9 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
               // EK HI BUTTON: singer photo hove ta ohdi photo (play/pause icon naal),
               // nahi ta simple orange circle. Purana vakhra chhota button hata ditta —
               // hun sirf ik hi button hovega, photo hove ja na hove.
-              const showLiveCard = settings.liveMode === "stream" && !!settings.liveImage;
+              const showLiveCard = liveOn && !!settings.liveImage;
               if (showLiveCard) return null; // live card khud hi button hai
-              const img = settings.liveMode !== "stream" && pStyle.showImage ? artistImg : null;
+              const img = !liveOn && pStyle.showImage ? artistImg : null;
               const stateColor = playing ? pStyle.playColor : pStyle.pauseColor;
               const ringStyle = stateColor
                 ? { border: `4px solid ${stateColor}`, boxShadow: `0 0 22px ${stateColor}80` }
@@ -174,9 +180,12 @@ export default function Hero({ shows }: { shows: ShowItem[] }) {
               <p className="text-xs font-semibold uppercase tracking-widest text-amber-400/80">
                 {playing ? "Now Playing" : "Tap to tune in"}
               </p>
-              {settings.liveMode === "stream" ? (
-                <p className="mt-0.5 text-sm font-medium text-amber-50" data-testid="hero-track">
-                  🔴 {settings.liveTitle || "Darbar Sahib Live"}
+              {liveOn ? (
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm font-medium text-amber-50" data-testid="hero-track">
+                  <span>🔴 {settings.liveTitle || "Darbar Sahib Live"}</span>
+                  <span className="flex items-center gap-1 font-mono text-xs font-bold text-amber-300">
+                    <Clock className="h-3 w-3" /> {nowAmPm(nowT)}
+                  </span>
                 </p>
               ) : currentTrack ? (
                 <div className="mt-1.5" data-testid="hero-track">
