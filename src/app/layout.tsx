@@ -21,6 +21,7 @@ const notoGurmukhi = Noto_Sans_Gurmukhi({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://coocoo-radio.vercel.app"),
   title: "CooCoo Radio 24x7 — ਪੰਜਾਬੀ • English Live Radio",
   description:
     "24x7 live desi radio: Punjabi and English music, latest news, scheduled shows with YouTube videos, image + video ads — and a rooster that crows Coo coo kdooo every morning!",
@@ -47,6 +48,22 @@ export const metadata: Metadata = {
     title: "CooCoo Radio 24x7",
     description: "Punjabi • English — 24x7 live desi radio with a morning rooster!",
     type: "website",
+    url: "https://coocoo-radio.vercel.app",
+    siteName: "CooCoo Radio 24x7",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "CooCoo Radio 24x7 — Punjabi • English Live Radio",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CooCoo Radio 24x7",
+    description: "Punjabi • English — 24x7 live desi radio with a morning rooster!",
+    images: ["/og-image.png"],
   },
 };
 
