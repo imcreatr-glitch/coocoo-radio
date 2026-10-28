@@ -13,7 +13,10 @@ export default function Navbar({
   onAdminOpen: () => void;
 }) {
   const [time, setTime] = useState<string>("");
+  const [tz, setTz] = useState<string>("");
 
+  // Green wala clock VISITOR de desh da time vekhda (new Date() = local).
+  // Naal chhota label: India ch "Punjab time", hor desh ch "Tuhada local".
   useEffect(() => {
     const tick = () => {
       const d = new Date();
@@ -23,6 +26,12 @@ export default function Navbar({
           minute: "2-digit",
           second: "2-digit",
         })
+      );
+      setTz(
+        d.toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" }) ===
+          d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+          ? "Punjab time"
+          : "Tuhada local"
       );
     };
     tick();
@@ -54,10 +63,11 @@ export default function Navbar({
 
         <div className="flex items-center gap-2 sm:gap-3">
           <span
-            className="hidden rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-1.5 font-mono text-sm tabular-nums text-amber-300 md:block"
+            className="hidden flex-col items-end rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-1.5 font-mono text-sm tabular-nums text-amber-300 md:flex"
             aria-label="current time"
           >
-            {time || "--:--:--"}
+            <span>{time || "--:--:--"}</span>
+            <span className="font-sans text-[9px] font-semibold uppercase tracking-wider text-amber-300/60">{tz}</span>
           </span>
           <Button
             variant="outline"
