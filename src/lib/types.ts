@@ -66,6 +66,9 @@ export interface StationSettings {
   theme?: string; // site color theme key (sunrise | royal | emerald | violet | crimson | white | black)
   tickerStyle?: string; // JSON TickerStyle — Breaking News ticker de rang (bg/text/labelBg/labelText)
   gurbaniSchedule?: string; // JSON GurbaniSchedule — time windows jadon gurbani live auto chalegi
+  liveOverride?: string; // "" = auto (time-table) | "on" = manual ON | "off" = manual BAND (window vi nahi chalegi)
+  programs?: string; // JSON Program[] — auto-play time-table (jiven 5-6 Old Songs, 6-7 Podcast)
+  audioAds?: string; // JSON AudioAd[] — auto ad breaks (time te song awaaj low, ad chale, fer wapis normal)
 }
 
 export const DEFAULT_SETTINGS: StationSettings = {
@@ -86,6 +89,9 @@ export const DEFAULT_SETTINGS: StationSettings = {
   theme: "",
   tickerStyle: "",
   gurbaniSchedule: "",
+  liveOverride: "",
+  programs: "",
+  audioAds: "",
 };
 
 /** Site color themes (admin-switchable, professional palettes) */
@@ -183,15 +189,110 @@ export function inGurbaniWindow(sched: GurbaniSchedule, date: Date): boolean {
   });
 }
 
-/** Kya hun Gurbani live chalni chahidi? Manual stream hamesha jeet; warna schedule window.
+/** Kya hun Gurbani live chalni chahidi? Priority: manual OFF > manual ON > purana stream mode > time-table window.
  *  Hamesha PUNJAB (IST) time naal decide hunda — chahe visitor kisi vi desh ch hove. */
 export function isLiveOn(
-  settings: Pick<StationSettings, "liveMode" | "liveUrl" | "gurbaniSchedule">,
+  settings: Pick<StationSettings, "liveMode" | "liveUrl" | "gurbaniSchedule" | "liveOverride">,
   now: Date = nowIST()
 ): boolean {
+  const ov = (settings.liveOverride || "").trim();
+  if (ov === "off") return false; // manual BAND — window vi nahi chala sakdi, admin AUTO na dabawe
+  if (ov === "on") return !!settings.liveUrl; // manual ON — jad tak admin na badle
   if (settings.liveMode === "stream" && !!settings.liveUrl) return true; // manual ON hamesha jeet
   if (!settings.liveUrl) return false;
   return inGurbaniWindow(parseGurbaniSchedule(settings.gurbaniSchedule), now);
+}
+
+/** ── Programs: admin da auto-play time-table (Punjab time naal) ──
+ *  Har program = time window + songs di list. Window chal rya hove ta player sirf ohde songs bajaunda hai. */
+export interface Program {
+  id: string;
+  title: string;
+  start: string; // "05:00"
+  end: string; // "06:00"
+  days: string; // "0,1,2,3,4,5,6" (0 = Aitvaar)
+  songIds: string; // JSON array of song ids
+  active: boolean;
+}
+
+/** Parse programs setting (never throws, always returns array) */
+export function parsePrograms(raw: string | undefined | null): Program[] {
+  if (!raw) return [];
+  try {
+    const v = JSON.parse(raw) as unknown;
+    if (!Array.isArray(v)) return [];
+    return v
+      .filter(
+        (p): p is Partial<Program> =>
+          !!p && typeof p === "object" && typeof p.title === "string" && typeof p.start === "string" && typeof p.end === "string"
+      )
+      .map((p, i) => ({
+        id: typeof p.id === "string" && p.id ? p.id : `prog-${i}`,
+        title: (p.title as string).trim() || "Program",
+        start: p.start as string,
+        end: p.end as string,
+        days: typeof p.days === "string" && p.days.trim() ? p.days : "0,1,2,3,4,5,6",
+        songIds: typeof p.songIds === "string" ? p.songIds : "[]",
+        active: p.active !== false,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+/** Hun-da ACTIVE program (Punjab time naal) — ya null. Overnight windows vi chalde ne. */
+export function activeProgram(
+  settings: Pick<StationSettings, "programs">,
+  now: Date = nowIST()
+): Program | null {
+  const progs = parsePrograms(settings.programs).filter((p) => p.active);
+  if (progs.length === 0) return null;
+  const mins = now.getHours() * 60 + now.getMinutes();
+  const day = now.getDay();
+  for (const p of progs) {
+    const days = p.days.split(",").map((d) => Number(d.trim()));
+    const s = toMin(p.start);
+    const e = toMin(p.end);
+    let on: boolean;
+    if (s === e) on = days.includes(day); // 24h program
+    else if (s < e) on = days.includes(day) && mins >= s && mins < e;
+    else on = (days.includes(day) && mins >= s) || (days.includes((day + 6) % 7) && mins < e); // overnight
+    if (on) return p;
+  }
+  return null;
+}
+
+/** ── Audio Ads: auto ad break — song awaaj low, ad chalegi, mukne te awaaj wapis normal ── */
+export interface AudioAd {
+  id: string;
+  title: string;
+  url: string; // mp3 link (jive jsDelivr/github)
+  time: string; // "17:15" — PUNJAB time jad ad bajegi
+  days: string; // "0,1,2,3,4,5,6"
+  active: boolean;
+  duck: number; // ad chaldi vakat song da volume % (default 12 — bhot halka)
+}
+
+/** Parse audioAds setting (never throws, always returns array) */
+export function parseAudioAds(raw: string | undefined | null): AudioAd[] {
+  if (!raw) return [];
+  try {
+    const v = JSON.parse(raw) as unknown;
+    if (!Array.isArray(v)) return [];
+    return v
+      .filter((a): a is Partial<AudioAd> => !!a && typeof a === "object" && typeof a.url === "string" && !!a.url.trim())
+      .map((a, i) => ({
+        id: typeof a.id === "string" && a.id ? a.id : `ad-${i}`,
+        title: typeof a.title === "string" && a.title.trim() ? a.title.trim() : "Ad",
+        url: (a.url as string).trim(),
+        time: typeof a.time === "string" && /^\d{1,2}:\d{2}$/.test(a.time) ? a.time : "17:15",
+        days: typeof a.days === "string" && a.days.trim() ? a.days : "0,1,2,3,4,5,6",
+        active: a.active !== false,
+        duck: typeof a.duck === "number" && a.duck >= 1 && a.duck <= 60 ? a.duck : 12,
+      }));
+  } catch {
+    return [];
+  }
 }
 
 /** "04:30" -> "4:30 AM", "22:15" -> "10:15 PM" */
@@ -299,6 +400,18 @@ export function ytEmbed(url: string): string | null {
 export function toMin(t: string): number {
   const [h, m] = (t || "0:0").split(":").map(Number);
   return (h || 0) * 60 + (m || 0);
+}
+
+/** Program/AudioAd da time window hun chalda? (Punjab date naal) — overnight support */
+export function timeWindowOn(start: string, end: string, days: string, date: Date): boolean {
+  const mins = date.getHours() * 60 + date.getMinutes();
+  const day = date.getDay();
+  const dayList = (days || "0,1,2,3,4,5,6").split(",").map((d) => Number(d.trim()));
+  const s = toMin(start);
+  const e = toMin(end);
+  if (s === e) return dayList.includes(day);
+  if (s < e) return dayList.includes(day) && mins >= s && mins < e;
+  return (dayList.includes(day) && mins >= s) || (dayList.includes((day + 6) % 7) && mins < e);
 }
 
 /** Is this show on air at the given day/hour/minute? Handles overnight shows. */
